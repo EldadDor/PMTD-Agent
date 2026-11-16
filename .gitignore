@@ -1,0 +1,42 @@
+# Build output and local tool caches
+.gradle/
+.gradle-user-home/
+.kotlin/
+build/
+out/
+
+# Editors and machine-local configuration
+.idea/
+*.iml
+.vscode/
+.env
+.env.*
+!.env.example
+application-local.yml
+application-local.yaml
+application-local.properties
+
+# Private history, feedback, exports, databases and logs
+private/
+data/
+exports/
+backups/
+logs/
+*.csv
+*.tsv
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+*.log
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+
+# Operating system files
+Thumbs.db
+.DS_Store

@@ -1,0 +1,17 @@
+spring:
+  application:
+    name: pmtd-agent
+
+server:
+  address: 127.0.0.1
+  port: ${PMTD_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+      show-components: never

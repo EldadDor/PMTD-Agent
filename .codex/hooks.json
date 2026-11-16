@@ -1,0 +1,17 @@
+{
+  "description": "Read-only Git workspace preflight for Personal Movie & TV Discovery Agent.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -ExecutionPolicy Bypass -File E:/Workspace/PMTD-Agent/.codex/hooks/session-start-git-safe-directory.ps1",
+            "statusMessage": "Checking Git access to PMTD-Agent"
+          }
+        ]
+      }
+    ]
+  }
+}
