@@ -1,6 +1,13 @@
 spring:
   application:
     name: pmtd-agent
+  ai:
+    model:
+      chat: none
+      embedding: none
+    ollama:
+      init:
+        pull-model-strategy: never
 
 server:
   address: 127.0.0.1
@@ -15,3 +22,13 @@ management:
     health:
       show-details: never
       show-components: never
+
+---
+spring:
+  config:
+    activate:
+      on-profile: "!postgres"
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration
+      - org.springframework.boot.flyway.autoconfigure.FlywayAutoConfiguration

@@ -1,0 +1,32 @@
+# Select this profile only for an approved target and migration execution.
+spring:
+  datasource:
+    url: jdbc:postgresql://${PMTD_DB_HOST}:${PMTD_DB_PORT}/${PMTD_DB_NAME}
+    username: ${PMTD_DB_USERNAME}
+    password: ${PMTD_DB_PASSWORD}
+    hikari:
+      schema: ${PMTD_DB_SCHEMA}
+      maximum-pool-size: 4
+      minimum-idle: 0
+      connection-timeout: 10000
+      validation-timeout: 3000
+      data-source-properties:
+        connectTimeout: 5
+        loginTimeout: 5
+        socketTimeout: 30
+        sslmode: ${PMTD_DB_SSLMODE}
+        options: -c statement_timeout=15000 -c lock_timeout=5000
+  jdbc:
+    template:
+      query-timeout: 15s
+  sql:
+    init:
+      mode: never
+  flyway:
+    enabled: true
+    default-schema: ${PMTD_DB_SCHEMA}
+    schemas: ${PMTD_DB_SCHEMA}
+    create-schemas: false
+    clean-disabled: true
+    baseline-on-migrate: false
+    validate-on-migrate: true

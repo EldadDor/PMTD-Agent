@@ -1,9 +1,17 @@
 # Phase 0 proposal
 
-Last reviewed: 2026-11-16 (Asia/Jerusalem)
+Last reviewed: 2026-11-19 (Asia/Jerusalem)
 Status: P1A-01 approved on 2026-11-16, including the exact toolchain in
-`foundation-manifest.md`. Remaining database/provider/model/deployment proposals
-still require their respective approvals. Original proposal follows for context.
+`foundation-manifest.md`. On 2026-11-18 the user approved Spring AI 2.0.2,
+PostgreSQL on their laptop and desktop Windows/IntelliJ operation; intends LINE
+with a reported account. Models/downloads, scheduling, feedback and deployment
+work are deferred. `decisions.md`, `ai-foundation-manifest.md`,
+`persistence-manifest.md` and `line-api-setup.md` contain the current direction.
+Original proposals below are retained as context; superseded recommendations do
+not override these choices. The user subsequently approved the JDBC/Flyway
+dependencies and V1 migration creation in `persistence-manifest.md`. On
+2026-11-19, V1 was applied to the PMTD laptop database and all eight integration
+tests passed on the separate test database.
 
 ## Architecture
 
@@ -61,9 +69,12 @@ only newly generated scaffold files, preserving these planning records.
 
 ## Smallest end-to-end vertical slice
 
-After schema/provider approvals: import a small private IMDb sample, manually
+With persistence validated on PostgreSQL, the POC sequence is to import a small
+private IMDb sample, manually
 discover a bounded set from one approved source, persist trusted IDs, rank
-deterministically, send one recommendation to the authorized user, persist one
+deterministically and inspect the result locally using fixtures first. Models,
+scheduling and feedback wait for the user's later decisions. The eventual MVP
+slice adds a recommendation to the authorized LINE user, persists one
 of the four button actions, then rerank and show its effect. Verify repeated
 import/discovery/feedback and restart persistence using fixtures/fake gateways
 first. Obtain explicit authorization before a real send.
@@ -106,7 +117,12 @@ Checked boxes mean documentation evidence, not successful integration.
   currently shows 2.0.2; 2.0.x supports Boot 4.0/4.1.
 - [x] [Kotlin support](https://docs.spring.io/spring-boot/reference/features/kotlin.html)
   requires Kotlin 2.2.x or newer and manages a suitable version.
-- [ ] Resolve exact Kotlin, plugin, BOM and Gradle patches; consult the
+- [x] Foundation only: exact Kotlin, plugin, BOM and Gradle patches approved in
+  `foundation-manifest.md` and committed in `1818702`; recorded compilation,
+  2 passing HTTP tests and bootJar build in `implementation-status.md`.
+  Spring AI 2.0.2 was subsequently resolved/compiled and verified with models
+  disabled on 2026-11-18 (3 passing tests and bootJar); inference is deferred.
+  Original requirement: consult the
   [Gradle Java matrix](https://docs.gradle.org/current/userguide/compatibility.html)
   and Kotlin target support. Boot's accepted Gradle versions do not all necessarily
   run on Java 25. Approve the manifest, resolve artifacts and compile/test it.
@@ -155,17 +171,20 @@ Sources: [LINE pricing](https://developers.line.biz/en/docs/messaging-api/pricin
   limits, authorized IDs and persisted offsets for Telegram.
 - [ ] Account for Telegram's 24-hour incoming-update retention and mutually
   exclusive long polling/webhook modes. Persist events before offset advancement.
-- [ ] Approve provider, account access and controlled real-send validation.
+- [x] User intends LINE and reports PMTD-Agent account creation on 2026-11-18;
+  see `line-api-setup.md` for the remaining activation/quota/ingress work.
+- [ ] Authorize account access and controlled real-send validation when ready.
 
 ### Database
 
-- [ ] Choose PostgreSQL or SQLite against deployment/concurrency/backup needs;
-  PostgreSQL is proposed for transactional workers, SQLite for fewer operational
-  components. Future pgvector alone does not justify adding vectors or a server.
+- [x] User chose existing laptop PostgreSQL at `10.100.102.12` on 2026-11-18;
+  version/port/database/schema/TLS and credentials later. No vectors.
 - [ ] Validate driver/migration support with the approved stack and design keys,
   locks, transactional feedback, delivery uncertainty and backup/restore.
-- [ ] Approve migrations; test uniqueness and concurrent updates on the chosen
-  engine, not a substitute DB. No schema or datastore has been created.
+- [x] JDBC/Flyway dependencies and V1 migration creation approved on 2026-11-18.
+  The local build packages V1 and passed five offline tests.
+- [x] Applied V1 to the dedicated laptop database and passed eight integration
+  tests on the authorized disposable database on 2026-11-19.
 
 ### Local Ollama
 
@@ -173,12 +192,16 @@ Sources: [LINE pricing](https://developers.line.biz/en/docs/messaging-api/pricin
   context increases memory; parameter count alone cannot establish minimum RAM.
 - [ ] Confirm RAM/VRAM/CPU/disk and host placement. Keep the runtime private;
   container networking requires a separately approved explicit URL/configuration.
-- [ ] Approve model tags/licenses, quantization, downloads and benchmark resources.
+- [ ] Deferred by user: model tags/licenses, quantization and benchmark resources.
+  **Do not download models.** Chat/embedding disabled; pull strategy `never`.
 - [ ] Fix context and concurrency for fair comparison; measure peak RAM/VRAM,
   cold/warm latency and offload. No minimum hardware claim without measurements.
 - [ ] Agree reliability/latency targets before the reproducible ~30-case
   3B/~5B/8B comparison: extraction, ambiguity, JSON/tool correctness, hallucinations,
   languages and deterministic baseline/fallback. Record exact tags/digests.
 
-Phase 0 is partially documented, not complete. Dependency resolution, live
-integrations and model/hardware evaluation remain unverified.
+Phase 0 remains incomplete. Foundation dependency resolution, compilation,
+HTTP tests and packaging are recorded as verified in `1818702`. On 2026-11-18,
+Spring AI 2.0.2 dependency resolution, compilation, disabled-model startup tests
+and packaging also passed (uncommitted). Live integrations, actual inference and
+model/hardware evaluation remain unverified/deferred. No phase closed.

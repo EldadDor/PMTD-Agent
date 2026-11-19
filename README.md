@@ -2,7 +2,11 @@
 
 A local-first movie and TV discovery project. The initial foundation contains a
 Kotlin/Spring Boot application and a loopback health endpoint. IMDb import,
-discovery, ranking, persistence, AI and messaging are not implemented yet.
+discovery, ranking and messaging are not implemented yet. PostgreSQL JDBC
+repositories and a V1 migration are available through the opt-in `postgres` profile.
+The approved
+Spring AI 2.0.2 Ollama starter is present with chat, embeddings and model pulling
+disabled; inference and model selection are deferred.
 
 ## Build and test
 
@@ -21,6 +25,13 @@ Packaged application: `build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar`.
 
 ## Local operation
 
+The current POC target is this Windows desktop. In IntelliJ, open the project as
+a Gradle project, choose JDK 25 for the project and Gradle JVM, and use the Gradle
+wrapper. Set Gradle user home to this checkout's `.gradle-user-home` if needed.
+Run `dev.pmtd.agent.MovieTvAgentApplicationKt` to start the app; set `PMTD_PORT`
+in the run configuration's environment to override port 8080. The default app
+needs no database, model, LINE credentials or schedule. `.env` is not auto-loaded.
+
 When ready to start the app locally:
 
 ```powershell
@@ -34,14 +45,72 @@ endpoint, with component details disabled. Stop with Ctrl+C. `.env.example`
 documents configuration; `.env` is not automatically loaded. Boot's standard
 console logging is used; avoid credentials or personal history in log messages.
 
+The desktop app uses a dedicated database on the user's laptop PostgreSQL. The
+default profile excludes datasource/Flyway setup even
+if database environment variables are present. The `postgres` profile wires JDBC
+and runs the approved V1 migration on startup. See the
+[persistence manifest](docs/persistence-manifest.md). No Ollama model is selected
+or downloaded. Keep chat/embeddings disabled and the pull strategy `never` until
+the user addresses model selection. Scheduling and feedback are also deferred.
+
+The LINE account is PMTD-Agent (`@966sowkr`); see the
+[API setup guide](docs/line-api-setup.md). Messaging API is enabled. The user will
+enter the ngrok HTTPS webhook URL in LINE when the handler is ready.
+Kind + ArgoCD and Hostinger VPS are future context; desktop POC work adds no
+Docker, cluster or remote deployment configuration.
+
+## PostgreSQL setup
+
+The laptop hosts `pmtd_agent` with schema `pmtd` and a dedicated `pmtd_app` login.
+Flyway applied V1 there. The ignored root `application-local.yml` holds the
+desktop's connection settings and LINE channel settings. The PostgreSQL server
+currently lacks TLS, so this local LAN connection uses `sslmode=disable`.
+
+Run from the repository root with the `postgres,local` profiles. In IntelliJ,
+set the working directory to the repository root and add
+`--spring.profiles.active=postgres,local` to the program arguments.
+
+```powershell
+java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=postgres,local'
+```
+
+JDBC operations preserve trusted source IDs, retain the first import provenance on
+rating updates and allow composing writes in a Spring transaction. These are
+storage primitives: CSV parsing, export precedence, duplicate-row policy and an
+import endpoint/command are not implemented. Repositories are active only under
+the `postgres` profile. Never log private rating records or driver error details.
+
+Regular `test` excludes PostgreSQL integration tests and forces the test profile;
+it needs no database credentials. It compiles the integration suite and checks
+offline profile wiring with Flyway disabled, without opening a DB connection.
+
+For an integration run, use `pmtd_agent_test` and provide all `PMTD_TEST_DB_*`
+variables in the invoking process. Use an existing,
+empty schema named `pmtd_test_<unique-suffix>` (lowercase letters, digits and
+underscores, at most 63 characters total). The suite checks emptiness before
+applying V1, uses fabricated data, and never falls back to `PMTD_DB_*` credentials.
+
+```powershell
+$env:GRADLE_USER_HOME = Join-Path $PWD '.gradle-user-home'
+.\gradlew.bat --no-daemon postgresTest
+```
+
+The task fails before tests if settings are missing. The suite checks migration
+repeatability, schema routing, trusted-ID conflicts, rating constraints/provenance,
+duplicate batches under concurrency, rollback and restart persistence. It retains
+the synthetic schema/data for inspection; no automatic drop/cleanup occurs. Each
+suite run needs a fresh empty schema. Reports are in `build/reports/tests/postgresTest/`.
+
 ## Project records and privacy
 
 See [implementation status](docs/implementation-status.md),
 [decisions](docs/decisions.md), and the
-[foundation manifest](docs/foundation-manifest.md).
+[foundation manifest](docs/foundation-manifest.md). The
+[AI foundation manifest](docs/ai-foundation-manifest.md) records this dependency
+step and its disabled runtime behavior.
 
 Keep real IMDb exports, ratings, feedback, tokens and databases in ignored
 `private/` or `data/` directories. Use fabricated test data. `.gitignore` also
 excludes environment files, CSV exports, databases and build caches; review
-staged files before any separately authorized commit. No database, messaging
-provider, model download or deployment is configured by this scaffold.
+staged files before any separately authorized commit. Keep `application-local.yml`
+out of source control and the packaged app.
