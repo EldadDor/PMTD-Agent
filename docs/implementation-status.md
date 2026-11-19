@@ -1,6 +1,9 @@
 # Implementation status
 
-Last reviewed: 2026-11-19 (Asia/Jerusalem)
+Historical implementation evidence. Use [the current phase board](work_current_phase.md)
+for live task status and [the documentation index](README.md) for reading guidance.
+
+Last reviewed: 2026-11-20 (Asia/Jerusalem)
 
 Current phase: Phase 0 — technical validation and decisions.
 Scope, the P1A-01 foundation manifest and Spring AI 2.0.2 are approved; the
@@ -26,12 +29,13 @@ were unrelated to this project and are replaced by the supplied specification.
 | P0-05 | Prove approved foundation toolchain/dependencies | Completed for foundation | `1818702`; checksum-pinned wrapper; recorded compilation, test and bootJar successful; AI library validation now recorded separately in P0-06 |
 | P1A-01 | Minimal health/config/logging scaffold | Completed and verified | `1818702`; recorded 2 HTTP tests passed; executable jar built; user milestone acceptance not yet recorded |
 | P1A-02 | Review schema, keys and transaction/resend semantics | Approved on 2026-11-18 | User approved exact dependencies and V1 creation from `persistence-manifest.md`; future delivery/feedback policies remain deferred |
-| P1A-03 | Add JDBC/PostgreSQL and reviewed migration | Implemented and verified | 8 PostgreSQL integration tests passed on `pmtd_agent_test`. V1 applied to `pmtd_agent.pmtd`. The implementation remains uncommitted. |
-| P0-06 | Validate approved Spring AI 2.0.2 foundation | Completed locally for disabled AI foundation | Uncommitted. Previously verified: 3 tests passed, 15 Spring AI artifacts resolved at 2.0.2, and bootJar succeeded. Inference is deferred. |
+| P1A-03 | Add JDBC/PostgreSQL and reviewed migration | Implemented and verified | `992e7f2`. 8 PostgreSQL integration tests passed on `pmtd_agent_test`. V1 applied to `pmtd_agent.pmtd`. |
+| P0-06 | Validate approved Spring AI 2.0.2 foundation | Completed for disabled AI foundation | `992e7f2`. Previously verified: 3 tests passed, 15 Spring AI artifacts resolved at 2.0.2, and bootJar succeeded. Inference is deferred. |
 | P0-07 | Explain LINE API setup for reported account | Documentation completed | `line-api-setup.md`; official requirements reviewed, account channel/quota not inspected |
 | P1D-02 | Model selection, inference and bake-off | Deferred by user | Do not download models; user will select later |
 | P1C-02 / P1E-01 | Scheduling and feedback | Deferred by user | Keep manual/fixture path; revisit decisions later |
 | P1A-04 / P1F-02 | Container/deployment work | Deferred for current POC | Desktop IntelliJ operation first; no Kind/ArgoCD/VPS setup |
+| P0-08 | Adopt the supplied instructions template | See current phase board | Current status lives in `docs/work_current_phase.md`. |
 
 ## Laptop PostgreSQL and LINE setup — 2026-11-19
 

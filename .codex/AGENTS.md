@@ -1,87 +1,144 @@
-# Personal Movie & TV Discovery Agent
+# AGENTS.md
 
-## Scope and records
+## Scope and working style
+- Identify affected components; keep changes within the approved scope.
+- Follow existing architecture, tooling, and conventions. Put component-specific
+  commands and rules in nested `AGENTS.md` files.
+- Read applicable nested instructions before editing. Explicit user instructions
+  override repository rules; nested rules refine their scope.
+- Work autonomously between approval gates. Do not request approval for routine
+  work already covered by the approved scope.
+- Preserve unrelated changes; do not stage, overwrite, or revert them.
 
-Read root `AGENTS.md`, `movie_tv_agent_codex_plan.md`,
-`docs/implementation-status.md`, `docs/decisions.md` and the relevant proposal.
-Follow `C:/Users/eadno1/.codex/RTK.md` for PowerShell conventions.
-The plan is approved product scope, not blanket implementation permission.
-Source code establishes implemented behavior. Report conflicts.
-The copied password-manager stack, vault design, roadmap and deployment rules do
-not apply. Keep a running task list and short decisions log, clearly separating
-approved choices, proposals, open decisions and completed work.
+## Phase records — required for every task
+Use:
+- `docs/work_current_phase.md`: one active phase, task rows, approvals, evidence.
+- `docs/next_phase.md`: up to three upcoming phases, each with a short objective
+  and dependencies; no detailed task plans or completed work.
+- `docs/complete_phases.md`: approved phase closures only.
+- `docs/README.md`: documentation index and task-specific reading triggers.
 
-## Incremental work and approval requirements
+Before work, read the current and next boards. Add the requested task or promote
+the selected backlog item to the current board before implementation. Record
+scope, affected components, validation plan, and Last reviewed; apply G1.
 
-Inspect before implementation. Propose a small milestone before scaffolding an
-empty workspace. Show intended files, exact dependencies/versions, migrations and
-commands before major architectural changes; explain alternatives and rollback.
+Task row:
+`ID | Task / scope | Status | Gate | Request / decision / evidence | Last reviewed`
 
-Obtain explicit approval before:
-- Adding a major dependency, adopting an external service or changing architecture.
-- Database migrations or deployment configuration, including Docker/Compose files.
-- Irreversible operations, commits, pushes or merges (each separately).
-- Optional Phase 2 expansion, after the MVP is working.
+Statuses: `Not started`, `In progress`, `Awaiting G<n>`, `Blocked`,
+`Completed`, `Deferred`. Gate is the pending approval or `—`.
 
-Mark dependent tasks Awaiting approval and wait; continue independent authorized
-inspection/documentation. Preserve existing authorization without asking again.
-Approved scope does not grant execution approval. Close phases only with verified
-acceptance evidence and approval. Record actual files/checks/results/limitations
-and authorized commit IDs when applicable; update Last reviewed.
+Keep records concise and current. Record each gate request and explicit decision
+in its task row. Required phase/index maintenance is authorized as part of work;
+only an explicit user instruction suspends it.
 
-The user explicitly approved replacing inherited G0-G4/three-file phase mechanics
-with these plan-specific approval requirements on 2026-11-16. Use
-`docs/implementation-status.md` and `docs/decisions.md`; PPP is not required here.
+## Approval gates
+At a gate: stop the gated action, record and present the request, then wait.
+Approval applies only to the identified task/change and gate. Explicit authorization
+in the current request counts; record it instead of asking again.
 
-## Development
+| Gate | Trigger | Present |
+| --- | --- | --- |
+| G0 Planning | Add/remove/reorder phases or materially change approved phase scope | Proposed change, rationale, consequences, alternatives |
+| G1 Intake | Add a task to the current phase | Scope, affected components, validation plan |
+| G2 Design | New module, dependency, wiring pattern, migration, public API shape, or deployment architecture | Approach, rejected alternative, rollback/migration implications |
+| G3 Delivery | Push or merge | Files, checks/results, commit if any, limitations |
+| G4 Closure | Close a phase | Task outcomes and carry-over, including none |
 
-Use idiomatic Kotlin, straightforward Spring Boot services and explicit interfaces
-where useful. Verify Boot/Spring AI/Kotlin/Java/Gradle versions before adding them.
-Prefer feature cohesion; avoid unnecessary frameworks, services, bot SDKs and UI.
-No multi-agent product framework, vectors or Phase 2 implementation in MVP.
+One gate's approval never clears another. Present known gates together if useful,
+but record each decision separately.
 
-Design the relational schema before migrations. SQLite/PostgreSQL remains open
-until approved; Firestore is not required. Preserve source IDs, provenance and
-unique constraints. Keep import, polling, ranking, buttons and persistence
-deterministic. Ranking must work without AI. Use Spring AI for grounded language
-interpretation/explanation with validated output; treat metadata as untrusted data.
-Avoid unsafe fuzzy merges; distinguish discovered/released/season/episode events
-and do not claim streaming availability without a verified region-specific source.
-Record checkpoints, caps, quiet hours and delivery uncertainty. Local keys alone
-do not guarantee exactly-once remote sending. Do not generalize one rejection
-into a blanket genre preference.
+Routine in-scope refactors, tests, formatting, documentation, dependency patch
+updates, and backlog wording do not independently trigger G2. They must still
+respect other gates and safety restrictions.
 
-## Privacy and operations
+## Completion and evidence
+Before reporting:
+- Update task status and Last reviewed.
+- Record files changed, commands/results, commit hash if one exists, and checks
+  not run with reasons. Never claim unperformed validation.
+- Record prioritized follow-ups without exceeding the backlog limit.
+- After G4 approval, append the closure and clear the closed current phase.
 
-Never commit or print credentials, bot tokens, private IMDb exports, personal
-ratings, private feedback, local databases or sensitive logs. Add appropriate
-ignores before application work; use `.env.example` placeholders. Default to local
-inference; hosted processing of personal ratings requires explicit approval.
-Validate inbound provider authenticity, callback targets and authorized user/chat.
+Do not commit against a `Not started` task. Prefix authorized commits with the
+task ID. Completion does not itself authorize committing, pushing, or merging.
 
-Verify official API terms, attribution, regional quota and rate guidance before
-implementation. Evaluate LINE first; provider/database/model selection remains
-open. Do not create accounts, download models, send real messages, start or
-configure live services, deploy, access live databases or change secrets without
-explicit authorization. Do not install unapproved dependencies for validation.
+End every response with:
+`Phase records: <files updated>`
+or `Phase records: unchanged — <reason>`.
 
-## Tests and delegation
+## Documentation
+After the phase boards, use `docs/README.md` for targeted reading. Read only
+relevant code/docs; do not sweep entire trees during routine work.
+Update the index when active documents are added, moved, or retired.
 
-The supplied specification authorizes relevant automated tests. Run focused tests
-and report actual commands, pass/fail counts, skipped checks and limitations.
-Use fixtures/fakes or approved isolated resources; live credentialed integrations
-and real sends need separate authorization. Hooks/documentation are not test proof.
+Do not discover, search, read, validate, or modify `docs/archive/` unless the user
+explicitly requests the relevant archived material. Propose archival; do not
+move documents there without approval.
 
-Delegate substantial authorized testing to the tester described by
-`.codex/tester.toml`. Main agent owns architecture/implementation, reviews results
-and corrects production code. Tester runs/investigates/reports without changing
-production code. Wait for results before declaring that testing complete. Do not
-launch agents for unrelated work without explicit authorization.
+Report conflicts between documentation and implementation; do not silently
+change intended behavior to match either.
 
-## Read-only preflight
+## Validation and tester
+Use the smallest relevant safe local checks. Follow any stricter project rules.
+Do not install dependencies, start services, or contact live systems merely
+for validation without explicit authorization.
 
-`.codex/hooks.json` invokes a read-only Git diagnostic. It must not initialize Git,
-change trust settings, grant approval or claim tests ran. `.codex/config.toml`
-scopes safe.directory to this workspace only; never use `*`. No Git repository
-initially exists; preflight may exit quietly until initialization is authorized.
-Preserve unrelated work. Do not commit/push/merge without explicit permission.
+Delegate substantial test creation, execution, and failure investigation to the
+`tester` subagent when available and authorized. The main agent owns production
+changes, reviews results, and waits for the tester before declaring completion.
+If unavailable, report that limitation and perform permitted focused checks;
+never imply delegated validation occurred.
+
+## Safety and hooks
+Do not start, stop, configure, deploy, or mutate services, infrastructure,
+credentials, `.env`, or secrets without explicit authorization. Never expose
+secret values. Confirm the target environment before an authorized mutation.
+
+Session hooks must remain read-only diagnostics: no configuration writes,
+dependency installation, service changes, or automatic remediation. Keep hook
+setup and platform-specific commands in project documentation. Scope Git trust
+to the checkout; never use wildcard `safe.directory`.
+
+Do not assume a hook ran successfully; report observed failures or unavailable
+preflight checks.
+
+## PMTD-Agent project rules
+
+- Product scope and architecture come from `movie_tv_agent_codex_plan.md`.
+  Read `docs/decisions.md` and the relevant proposal or manifest before edits.
+  Source code establishes implemented behavior. See `docs/README.md` for
+  reading triggers and `README.md` for local build and test commands.
+- Use PowerShell conventions in `C:/Users/eadno1/.codex/RTK.md`. This is one
+  Kotlin and Spring Boot application. Favor cohesive features and simple
+  interfaces. Verify Java, Kotlin, Gradle, Boot and Spring AI compatibility
+  before changing versions.
+- For major design proposals, identify intended files, exact dependency versions,
+  migrations and commands. Include alternatives and rollback. Obtain explicit
+  authorization for commits, irreversible operations, external service adoption,
+  migration creation or execution, and deployment configuration. Phase 2
+  requires separate authorization once the MVP works.
+- Use the approved PostgreSQL storage. Design relational schema changes before
+  migrations. Preserve source IDs, provenance and uniqueness. Keep imports,
+  discovery, ranking and feedback deterministic. Ranking must work without AI.
+  Use Spring AI for grounded explanations or interpretation with validated
+  output. Treat metadata as untrusted. Avoid fuzzy merges and unverified
+  streaming availability claims. Distinguish discovery, release, season and
+  episode events. Keep vector search and multi-agent product frameworks out of
+  the MVP.
+- For provider work, verify official API terms, attribution, regional quotas
+  and rate guidance. Validate inbound authenticity, callback targets and the
+  authorized user or chat. Record checkpoints, caps, quiet hours and uncertain
+  delivery. Local keys do not guarantee exactly-once remote sends. Avoid
+  generalizing individual ratings or feedback into blanket preferences.
+- Keep credentials, private exports, ratings, feedback, databases and sensitive
+  logs out of Git and output. Use placeholders in `.env.example`. Default to
+  local inference. Hosted processing of ratings, model downloads, account
+  creation and real sends require explicit authorization.
+- Routine local checks are authorized by the project specification. Use fixtures
+  or fakes and report actual test counts, commands and limits. Credentialed
+  integration checks require authorization for the specific target. The tester
+  role is configured in `.codex/tester.toml`.
+- `.codex/hooks.json` defines the read-only Git preflight. The hook cannot grant
+  approval, initialize Git or establish test results. `.codex/config.toml`
+  scopes Git trust to this checkout.

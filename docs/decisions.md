@@ -1,6 +1,6 @@
 # Decisions
 
-Last reviewed: 2026-11-19 (Asia/Jerusalem)
+Last reviewed: 2026-11-20 (Asia/Jerusalem)
 
 ## Approved scope
 
@@ -76,6 +76,12 @@ push, merge, model download or deployment authorized.
 
 ## Reservations and operating-rule changes
 
+- On 2026-11-20 the user requested adapting the root `AGENTS.md` to their shared
+  template. The user clarified that the supplied template governs the project
+  from `.codex/AGENTS.md`. Root `AGENTS.md` points there. The template's gates
+  and phase files supersede the earlier two-file workflow. Prior decisions and
+  implementation evidence remain recorded here and in `implementation-status.md`.
+
 - Exact version strings are now fixed. Resolved Spring AI 2.0.2 artifacts,
   compilation, disabled-model startup/tests and packaging passed with Boot 4.1.2
   on 2026-11-18. Actual model inference remains unverified/deferred.
@@ -85,7 +91,7 @@ push, merge, model download or deployment authorized.
 - A unique local delivery key cannot guarantee exactly-once remote delivery if a
   process crashes after sending but before persisting the receipt. Track uncertain
   sends separately; agree resend policy before automatic delivery.
-- Replace inherited G0–G4 and three-file roadmap mechanics with the specification's
-  explicit approval triggers and a single running task list. Approved scope is not
-  execution approval. Remove the inherited ban on tests and Firestore-only rule.
-  Relevant tests are authorized by the supplied specification; database work stays gated.
+- The 2026-11-16 workflow used plan-specific approval triggers and a single task
+  list. The 2026-11-20 template adoption supersedes that record layout and gate
+  workflow. Relevant tests remain authorized by the specification. Database
+  migrations still require explicit approval.
