@@ -2,7 +2,7 @@
 
 Review before each task and update after it. Last reviewed: 2026-11-20 (Asia/Jerusalem).
 
-- **Current:** [Phase 1C — Discovery and polling](work_current_phase.md). P1C-01 TVmaze persistence is in progress; 33 offline and 17 disposable PostgreSQL tests passed.
+- **Current:** [Phase 1C — Discovery and polling](work_current_phase.md). P1C-01 TVmaze persistence is in progress; 33 offline and 17 disposable PostgreSQL tests passed; packaged public sample repeat verified.
 - **Next:** [1D Ranking and AI](next_phase.md) · [Later phases](proposed_next_phases.md). G0 approved the Phase 1C sequence and roadmap arrangement.
 - **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [Discovery design](discovery-persistence-proposal.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md)
 

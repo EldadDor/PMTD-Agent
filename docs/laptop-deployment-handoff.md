@@ -11,6 +11,8 @@ commands below current. The operator performs the steps on the laptop.
   checkpoint tables. G2 approved migration creation. The PostgreSQL target and
   production migration execution require separate authorization before this command can run.
   V1 and V2 passed 17 synthetic PostgreSQL tests in a disposable test schema.
+  The packaged US sample import ran twice against that schema, observing 74
+  episodes each time without increasing the total on the second run.
 - The default container health check uses no database. The new import command
   disables automatic migration. Other application starts with the `postgres`
   profile normally enable Flyway and would apply V2. See the [README](../README.md#tvmaze-schedule-import)
