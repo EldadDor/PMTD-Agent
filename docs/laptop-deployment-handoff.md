@@ -7,24 +7,16 @@ commands below current. The operator performs the steps on the laptop.
 
 ## Current rollout
 
-- **2026-11-20 — IMDb rating distribution:** Adds `--imdb-stats` for a local
-  PostgreSQL profile. The command displays aggregate counts for ratings 1–10.
-- **Database and configuration:** No migration or dependency was added. The
-  statistics command disables Flyway. It needs PostgreSQL connection settings
-  and the `postgres` profile; the container below uses the default profile and
-  does not connect to PostgreSQL. Configuring container database access is a
-  separate deployment task.
-- **Verification:** After the rollout, the container health check should show
-  `UP`. This confirms startup only. The statistics command has not yet been
-  verified against a disposable PostgreSQL target; the offline suite passed 30
-  tests. To run the statistics command on a host with the local PostgreSQL
-  configuration, use the command in the [README](../README.md#postgresql-setup).
-  Do not paste private rating counts into public logs or Git.
-- **Rollback:** If startup fails, inspect `docker logs pmtd-agent-smoke`. To
-  return to a known earlier revision, check out that revision in the laptop
-  clone, then run the container steps starting at removal (skip `git pull`).
-  Preserve local changes
-  before changing revisions. No database rollback is needed for this rollout.
+- **Phase 1C — TVmaze manual schedule import:** V2 adds observation and
+  checkpoint tables. G2 approved migration creation. The PostgreSQL target and
+  production migration execution require separate authorization before this command can run.
+  V1 and V2 passed 17 synthetic PostgreSQL tests in a disposable test schema.
+- The default container health check uses no database. The new import command
+  disables automatic migration. Other application starts with the `postgres`
+  profile normally enable Flyway and would apply V2. See the [README](../README.md#tvmaze-schedule-import)
+  for its command and [design](discovery-persistence-proposal.md) for scope.
+- The laptop rollout remains manual. This handoff will be updated with the
+  validated migration steps and the commit when they are authorized and ready.
 
 ## First-time laptop setup
 

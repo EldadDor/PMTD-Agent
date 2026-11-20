@@ -2,14 +2,15 @@
 
 Review before each task and update after it. Last reviewed: 2026-11-20 (Asia/Jerusalem).
 
-- **Current:** [Phase 1B — IMDb history import](work_current_phase.md). P1B-02 awaits verification of `--imdb-stats` against authorized, disposable PostgreSQL.
-- **Next:** [1C Discovery → 1D Ranking and AI → 1E Notifications and feedback](next_phase.md). Use PPP for G0 approval when planning the next tasks.
-- **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md)
+- **Current:** [Phase 1C — Discovery and polling](work_current_phase.md). P1C-01 TVmaze persistence is in progress; 33 offline and 17 disposable PostgreSQL tests passed.
+- **Next:** [1D Ranking and AI](next_phase.md) · [Later phases](proposed_next_phases.md). G0 approved the Phase 1C sequence and roadmap arrangement.
+- **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [Discovery design](discovery-persistence-proposal.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md)
 
 ## Completed
 
-- **Phase 0 and Phase 1A:** G4 approved on 2026-11-20. The archived ledger records outcomes and carry-over.
+- **Phases 0, 1A and 1B:** G4 approved on 2026-11-20. The archived ledger records outcomes and carry-over.
 - **P1B-01:** Reviewed import acceptance using P0-09/P0-10 evidence. Distribution went to P1B-02. Genre statistics await stored metadata.
+- **P1B-02:** User approved disposable PostgreSQL verification. The packaged CLI showed ten zero buckets on an empty schema, then correct counts after importing three synthetic ratings. The disposable `pmtd_agent_test.pmtd_test_stats_c63d4c450cd2` schema remains for inspection. Earlier offline `test bootJar` passed 30 tests. Implementation in `744b334`.
 - **P1B-03:** Published the manual laptop handoff and rating statistics changes (`744b334`, `f1bb40e`, G1/G3 approved). The new rollout awaits laptop execution.
 - **P1B-04:** Reorganized the docs and archived retired files as requested (G1). Checked links and phase records. Documentation only.
 

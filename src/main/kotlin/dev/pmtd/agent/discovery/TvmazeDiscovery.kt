@@ -7,17 +7,19 @@ import tools.jackson.databind.ObjectMapper
 import java.time.Duration
 import java.time.LocalDate
 
-class TvmazeDiscovery(private val client: RestClient = defaultClient()) {
+class TvmazeDiscovery(
+    private val client: RestClient = defaultClient(),
+    private val pause: (Long) -> Unit = { Thread.sleep(it) },
+) {
     fun schedule(country: String, date: LocalDate, limit: Int): List<Episode> {
         require(country.matches(Regex("[A-Z]{2}"))) { "Country must be a two-letter uppercase ISO code" }
         require(limit in 1..100) { "Limit must be between 1 and 100" }
-        val bytes = client.get().uri("/schedule?country={country}&date={date}", country, date)
-            .exchange { _, response ->
-                check(response.statusCode.is2xxSuccessful) { "TVmaze returned HTTP ${response.statusCode.value()}" }
-                val body = response.body.readNBytes(MAX_BYTES + 1)
-                check(body.size <= MAX_BYTES) { "TVmaze response exceeds size limit" }
-                body
-            } ?: error("Empty TVmaze response")
+        return fetch(country, date).take(limit)
+    }
+
+    fun fetch(country: String, date: LocalDate): List<Episode> {
+        require(country.matches(Regex("[A-Z]{2}"))) { "Country must be a two-letter uppercase ISO code" }
+        val bytes = request(country, date)
         val root = ObjectMapper().readTree(bytes)
         require(root.isArray) { "Invalid TVmaze schedule" }
         // Validate the full response before printing any results.
@@ -29,7 +31,23 @@ class TvmazeDiscovery(private val client: RestClient = defaultClient()) {
             Episode(id(node, "id"), id(show, "id"), field(show, "name"), field(node, "name"),
                 field(node, "airdate"), field(show, "url"))
         }.toList()
-        return episodes.take(limit)
+        return episodes
+    }
+
+    private fun request(country: String, date: LocalDate): ByteArray {
+        repeat(3) { attempt ->
+            val response = client.get().uri("/schedule?country={country}&date={date}", country, date)
+                .exchange { _, result ->
+                    if (result.statusCode.value() == 429) return@exchange null
+                    check(result.statusCode.is2xxSuccessful) { "TVmaze returned HTTP ${result.statusCode.value()}" }
+                    val body = result.body.readNBytes(MAX_BYTES + 1)
+                    check(body.size <= MAX_BYTES) { "TVmaze response exceeds size limit" }
+                    body
+                }
+            if (response != null) return response
+            if (attempt < 2) pause(1000L * (attempt + 1))
+        }
+        error("TVmaze returned HTTP 429 after retries")
     }
 
     private fun id(node: JsonNode, key: String): Long {

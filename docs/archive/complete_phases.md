@@ -43,3 +43,22 @@ deployment validation carry forward. See [Docker instructions](docker-instructio
 | P1A-04 | Package for Docker and document operation | Deferred | — | Persistent packaging and deployment acceptance carry forward. The user will run Docker manually on the laptop only. | 2026-11-20 |
 | P1A-05 | Review foundation acceptance for desktop POC | Completed | — | User approved G4 and carried Docker into deployment. Ranking, feedback, notifications and the app AI adapter follow their feature phases. | 2026-11-20 |
 | P1A-06 | Document manual Docker operation on the laptop | Completed | — | User authorized the runbook. Added `docker-instructions.md`, indexed it, and reviewed commands against project settings and Docker image documentation. The user reported completing the laptop runbook and receiving `UP` on 2026-11-20. This was the default-profile smoke check; persistent deployment remains deferred. | 2026-11-20 |
+
+## Phase 1B — IMDb history import
+
+Closed on 2026-11-20 (Asia/Jerusalem), with explicit G4 approval. The importer
+preserves IMDb IDs and ratings, reports outcomes, and skips identical exports.
+The approved real import and synthetic reimport evidence are in P0-09 and P0-10.
+Ratings can be queried locally. The packaged statistics command was verified
+against an empty disposable PostgreSQL schema and three synthetic ratings.
+
+Carry-over: genre statistics require stored genre metadata. The laptop rollout
+of the statistics change remains with the user. The synthetic test schema
+`pmtd_agent_test.pmtd_test_stats_c63d4c450cd2` remains for inspection.
+
+| ID | Task / scope | Status | Gate | Request / decision / evidence | Last reviewed |
+| --- | --- | --- | --- | --- | --- |
+| P1B-01 | Review IMDb import acceptance | Completed | — | Reviewed importer and P0-09/P0-10 evidence. | 2026-11-20 |
+| P1B-02 | Generate local rating distribution | Completed | — | G1 and G2 approved. `744b334`; offline test and bootJar passed 30 tests. User approved disposable PostgreSQL verification; packaged CLI returned ten zero buckets, then correct counts after three synthetic imports. Full PostgreSQL suite not rerun for this focused check. | 2026-11-20 |
+| P1B-03 | Prepare laptop handoff and publish changes | Completed | — | G1 and G3 authorized. Handoff and statistics published in `744b334` and `f1bb40e`; laptop rollout remains manual. | 2026-11-20 |
+| P1B-04 | Organize documentation | Completed | — | User requested index and archive changes; documentation committed in `6855b87`. Links and diff checked. | 2026-11-20 |

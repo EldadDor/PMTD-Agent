@@ -14,7 +14,7 @@ import java.time.LocalDate
 class TvmazeDiscoveryTest {
     private val builder = RestClient.builder().baseUrl("https://api.tvmaze.com")
     private val server = MockRestServiceServer.bindTo(builder).build()
-    private val client = TvmazeDiscovery(builder.build())
+    private val client = TvmazeDiscovery(builder.build()) { }
     private val date = LocalDate.parse("2026-11-20")
     private val url = "https://api.tvmaze.com/schedule?country=US&date=2026-11-20"
 
@@ -47,10 +47,30 @@ class TvmazeDiscoveryTest {
 
     @Test
     fun `reports rate limit and service outage`() {
-        server.expect(requestTo(url)).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS))
         server.expect(requestTo(url)).andRespond(withStatus(HttpStatus.SERVICE_UNAVAILABLE))
         assertThrows(IllegalStateException::class.java) { client.schedule("US", date, 1) }
-        assertThrows(IllegalStateException::class.java) { client.schedule("US", date, 1) }
+    }
+
+    @Test
+    fun `fetch retains all episodes beyond dry run limit`() {
+        val body = (1..101).joinToString(",", "[", "]") { "{\"id\":$it,\"show\":{\"id\":1}}" }
+        server.expect(requestTo(url)).andRespond(withSuccess(body, MediaType.APPLICATION_JSON))
+        assertEquals(101, client.fetch("US", date).size)
+    }
+
+    @Test
+    fun `retries rate limit then returns complete empty schedule`() {
+        server.expect(requestTo(url)).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS))
+        server.expect(requestTo(url)).andRespond(withSuccess("[]", MediaType.APPLICATION_JSON))
+        assertTrue(client.fetch("US", date).isEmpty())
+        server.verify()
+    }
+
+    @Test
+    fun `stops after bounded rate limit retries`() {
+        repeat(3) { server.expect(requestTo(url)).andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS)) }
+        assertThrows(IllegalStateException::class.java) { client.fetch("US", date) }
+        server.verify()
     }
 
     @Test

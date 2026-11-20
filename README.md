@@ -70,6 +70,21 @@ not include global web channels. Results are displayed locally with TVmaze credi
 java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar --tvmaze-country=US --tvmaze-date=2026-11-20 --tvmaze-limit=20
 ```
 
+## TVmaze schedule import
+
+After V2 has been applied to an explicitly authorized PostgreSQL target, the
+manual import stores a complete country schedule and a checkpoint. Run from the
+repository root with your local database configuration and replace the example
+country and date with your chosen values:
+
+```powershell
+java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=postgres,local' --tvmaze-import-country=US --tvmaze-import-date=2026-11-20
+```
+
+The command disables automatic Flyway migration. It stores TVmaze observations
+separately from IMDb titles and does not infer streaming availability. TV data
+is supplied by TVmaze under CC BY-SA.
+
 ## PostgreSQL setup
 
 The laptop hosts `pmtd_agent` with schema `pmtd` and a dedicated `pmtd_app` login.

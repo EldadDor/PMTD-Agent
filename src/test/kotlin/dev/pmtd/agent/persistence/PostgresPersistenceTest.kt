@@ -1,6 +1,8 @@
 package dev.pmtd.agent.persistence
 
 import dev.pmtd.agent.MovieTvAgentApplication
+import dev.pmtd.agent.discovery.Episode
+import dev.pmtd.agent.discovery.TvmazeScheduleImport
 import dev.pmtd.agent.catalog.CatalogIdentityConflictException
 import dev.pmtd.agent.catalog.CatalogRepository
 import dev.pmtd.agent.catalog.CatalogTitle
@@ -110,14 +112,15 @@ class PostgresPersistenceTest {
     fun `migration is confined to target schema and is not repeated`() {
         assertThat(jdbc.sql("SELECT current_schema()").query(String::class.java).single()).isEqualTo(schema)
         val flyway = context.getBean(Flyway::class.java)
-        assertThat(flyway.info().applied()).hasSize(1)
-        assertThat(flyway.info().current().version.version).isEqualTo("1")
+        assertThat(flyway.info().applied()).hasSize(2)
+        assertThat(flyway.info().current().version.version).isEqualTo("2")
         assertThat(flyway.migrate().migrationsExecuted).isZero()
         flyway.validate()
         val tables = jdbc.sql("SELECT tablename FROM pg_tables WHERE schemaname = :schema")
             .param("schema", schema).query(String::class.java).list()
         assertThat(tables).containsExactlyInAnyOrder(
             "flyway_schema_history", "catalog_title", "title_external_id", "imdb_import_batch", "imported_rating",
+            "tvmaze_schedule_episode", "tvmaze_schedule_checkpoint",
         )
     }
 
@@ -243,7 +246,7 @@ class PostgresPersistenceTest {
         context.close()
         context = startContext()
         assertThat(catalog.findById(title.id)).isEqualTo(title)
-        assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(1)
+        assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(2)
     }
 
     @Test
@@ -368,6 +371,62 @@ class PostgresPersistenceTest {
         }
         assertThat(jdbc.sql("SELECT count(*) FROM imported_rating WHERE imdb_id = :id")
             .param("id", id).query(Long::class.java).single()).isEqualTo(1)
+    }
+
+    @Test
+    fun `TVmaze import is repeatable across countries and preserves checkpoint on invalid input`() {
+        val service = context.getBean(TvmazeScheduleImport::class.java)
+        val day = LocalDate.parse("2026-11-20")
+        val episode = Episode(9912345, 9923456, "Synthetic", "Pilot", "2026-11-20", null)
+        assertThat(service.save("US", day, listOf(episode))).isEqualTo(1)
+        assertThat(service.save("US", day, listOf(episode.copy(airDate = "2026-11-21")))).isEqualTo(1)
+        service.save("GB", day, listOf(episode))
+        assertThat(jdbc.sql("SELECT count(*) FROM tvmaze_schedule_episode WHERE episode_id = 9912345")
+            .query(Long::class.java).single()).isEqualTo(2)
+        assertThat(jdbc.sql("SELECT air_date FROM tvmaze_schedule_episode WHERE country = 'US' AND episode_id = 9912345")
+            .query(LocalDate::class.java).single()).isEqualTo(LocalDate.parse("2026-11-21"))
+        val later = day.plusDays(2)
+        assertThatThrownBy { service.save("US", later, listOf(episode.copy(airDate = "invalid"))) }
+            .isInstanceOf(java.time.format.DateTimeParseException::class.java)
+        assertThat(jdbc.sql("SELECT count(*) FROM tvmaze_schedule_checkpoint WHERE country = 'US' AND schedule_date = :date")
+            .param("date", later).query(Long::class.java).single()).isZero()
+    }
+
+    @Test
+    fun `TVmaze observations and checkpoint roll back together`() {
+        val service = context.getBean(TvmazeScheduleImport::class.java)
+        val day = LocalDate.parse("2030-01-01")
+        val episode = Episode(9912350, 9923456, "Synthetic", null, null, null)
+        assertThatThrownBy {
+            transactions.executeWithoutResult {
+                service.save("FR", day, listOf(episode))
+                throw IllegalStateException("synthetic failure")
+            }
+        }.isInstanceOf(IllegalStateException::class.java)
+        assertThat(jdbc.sql("SELECT count(*) FROM tvmaze_schedule_episode WHERE country = 'FR' AND episode_id = 9912350")
+            .query(Long::class.java).single()).isZero()
+        assertThat(jdbc.sql("SELECT count(*) FROM tvmaze_schedule_checkpoint WHERE country = 'FR' AND schedule_date = :date")
+            .param("date", day).query(Long::class.java).single()).isZero()
+    }
+
+    @Test
+    fun `concurrent TVmaze observations converge on one row`() {
+        val service = context.getBean(TvmazeScheduleImport::class.java)
+        val episode = Episode(9912351, 9923456, "Synthetic", null, null, null)
+        val day = LocalDate.parse("2030-01-02")
+        val start = CountDownLatch(1)
+        Executors.newFixedThreadPool(2).use { executor ->
+            val jobs = (1..2).map {
+                executor.submit<Int> {
+                    check(start.await(5, TimeUnit.SECONDS))
+                    service.save("CA", day, listOf(episode))
+                }
+            }
+            start.countDown()
+            assertThat(jobs.map { it.get(15, TimeUnit.SECONDS) }).containsExactly(1, 1)
+        }
+        assertThat(jdbc.sql("SELECT count(*) FROM tvmaze_schedule_episode WHERE country = 'CA' AND episode_id = 9912351")
+            .query(Long::class.java).single()).isEqualTo(1)
     }
 
     private fun fixtureCsv(contents: String): Path = fixtureDirectory.resolve("${UUID.randomUUID()}.csv")
