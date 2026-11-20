@@ -4,9 +4,8 @@ A local-first movie and TV discovery project. The initial foundation contains a
 Kotlin/Spring Boot application and a loopback health endpoint. IMDb import,
 discovery, ranking and messaging are not implemented yet. PostgreSQL JDBC
 repositories and a V1 migration are available through the opt-in `postgres` profile.
-The approved
-Spring AI 2.0.2 Ollama starter is present with chat, embeddings and model pulling
-disabled; inference and model selection are deferred.
+The Spring AI 2.0.2 Ollama starter is present. The default application disables
+chat, embeddings and model pulling. Spark-X2.6-4B is the first laptop Ollama trial.
 
 ## Build and test
 
@@ -49,15 +48,27 @@ The desktop app uses a dedicated database on the user's laptop PostgreSQL. The
 default profile excludes datasource/Flyway setup even
 if database environment variables are present. The `postgres` profile wires JDBC
 and runs the approved V1 migration on startup. See the
-[persistence manifest](docs/persistence-manifest.md). No Ollama model is selected
-or downloaded. Keep chat/embeddings disabled and the pull strategy `never` until
-the user addresses model selection. Scheduling and feedback are also deferred.
+[persistence manifest](docs/persistence-manifest.md). The laptop already has
+`SparkLLM/Spark-X2.6-4B:latest` installed for the inference trial. See the
+[current phase board](docs/work_current_phase.md) for validation and the
+[decision register](docs/decisions.md) for model selection status. Scheduling and
+feedback are deferred.
 
 The LINE account is PMTD-Agent (`@966sowkr`); see the
 [API setup guide](docs/line-api-setup.md). Messaging API is enabled. The user will
 enter the ngrok HTTPS webhook URL in LINE when the handler is ready.
 Kind + ArgoCD and Hostinger VPS are future context; desktop POC work adds no
 Docker, cluster or remote deployment configuration.
+
+## TVmaze manual discovery
+
+The public TVmaze schedule requires no API key. Provide an uppercase country
+code, date and result limit from 1 to 100. The country schedule lists episode airings and does
+not include global web channels. Results are displayed locally with TVmaze credit.
+
+```powershell
+java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar --tvmaze-country=US --tvmaze-date=2026-11-20 --tvmaze-limit=20
+```
 
 ## PostgreSQL setup
 
@@ -76,9 +87,21 @@ java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=pos
 
 JDBC operations preserve trusted source IDs, retain the first import provenance on
 rating updates and allow composing writes in a Spring transaction. These are
-storage primitives: CSV parsing, export precedence, duplicate-row policy and an
-import endpoint/command are not implemented. Repositories are active only under
+storage primitives. The IMDb import command has been tested with fabricated data.
+Repositories are active only under
 the `postgres` profile. Never log private rating records or driver error details.
+
+Once validated and authorized for your export, run it from the repository root
+using the local PostgreSQL settings. Replace the sample path with your export.
+The command uses the current directory for the ignored local configuration.
+
+```powershell
+java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=postgres,local' '--import-imdb=docs/resources/your-export.csv'
+```
+
+The command reports counts and record numbers for invalid or conflicting rows.
+It does not print titles or ratings. Equal ratings are counted as unchanged, and
+newer known rating dates are retained. Identical exports are skipped by digest.
 
 Regular `test` excludes PostgreSQL integration tests and forces the test profile;
 it needs no database credentials. It compiles the integration suite and checks

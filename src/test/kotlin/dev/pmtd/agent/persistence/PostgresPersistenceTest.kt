@@ -9,9 +9,12 @@ import dev.pmtd.agent.catalog.ExternalTitleId
 import dev.pmtd.agent.catalog.TitleKind
 import dev.pmtd.agent.imdb.ImdbHistoryRepository
 import dev.pmtd.agent.imdb.ImdbImportBatch
+import dev.pmtd.agent.imdb.ImdbImportService
 import dev.pmtd.agent.imdb.ImportCounts
 import dev.pmtd.agent.imdb.RatingWrite
 import java.security.MessageDigest
+import java.nio.file.Files
+import java.nio.file.Path
 import java.sql.DriverManager
 import java.time.Instant
 import java.time.LocalDate
@@ -28,6 +31,7 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.TestInstance
+import org.junit.jupiter.api.io.TempDir
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.context.ConfigurableApplicationContext
@@ -42,6 +46,9 @@ import org.springframework.transaction.support.TransactionTemplate
 @Tag("postgres")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 class PostgresPersistenceTest {
+    @TempDir
+    lateinit var fixtureDirectory: Path
+
     private lateinit var context: ConfigurableApplicationContext
     private lateinit var settings: Map<String, Any>
     private lateinit var schema: String
@@ -49,6 +56,7 @@ class PostgresPersistenceTest {
 
     private val catalog get() = context.getBean(CatalogRepository::class.java)
     private val history get() = context.getBean(ImdbHistoryRepository::class.java)
+    private val importer get() = context.getBean(ImdbImportService::class.java)
     private val jdbc get() = context.getBean(JdbcClient::class.java)
     private val transactions get() = TransactionTemplate(context.getBean(PlatformTransactionManager::class.java))
 
@@ -237,6 +245,138 @@ class PostgresPersistenceTest {
         assertThat(catalog.findById(title.id)).isEqualTo(title)
         assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(1)
     }
+
+    @Test
+    fun `import uses personal rating and named headers while preserving optional values and quoted title`() {
+        val id = imdbId()
+        val path = fixtureCsv(
+            "\uFEFFIMDb Rating,Title,Const,Year,Date Rated,Title Type,Your Rating\r\n" +
+                "9.9,\"Synthetic,\nQuoted \"\"Title\"\"\",$id,,,TV Series,3\r\n",
+        )
+
+        val result = importer.import(path)
+
+        assertThat(result.counts).isEqualTo(ImportCounts(1, 1, 0, 0, 0))
+        val rating = requireNotNull(history.findRating(id))
+        assertThat(rating.rating).isEqualTo(3)
+        assertThat(rating.ratedOn).isNull()
+        val title = requireNotNull(catalog.findByExternalId(ExternalTitleId(ExternalIdNamespace.IMDB_TITLE, id)))
+        assertThat(title.displayTitle).isEqualTo("Synthetic,\nQuoted \"Title\"")
+        assertThat(title.releaseYear).isNull()
+        assertThat(title.kind).isEqualTo(TitleKind.SERIES)
+    }
+
+    @Test
+    fun `invalid rows and all duplicate IDs are rejected including a valid twin of an invalid row`() {
+        val accepted = imdbId()
+        val duplicated = imdbId()
+        val mixedDuplicate = imdbId()
+        val invalidDate = imdbId()
+        val invalidYear = imdbId()
+        val path = fixtureCsv(
+            "$importHeader\n" +
+                "$accepted,7,2026-01-01,Synthetic,Movie,2000\n" +
+                "$duplicated,5,2026-01-01,Duplicate One,Movie,2000\n" +
+                "$duplicated,6,2026-01-01,Duplicate Two,Movie,2000\n" +
+                "$mixedDuplicate,0,2026-01-01,Invalid Twin,Movie,2000\n" +
+                "$mixedDuplicate,8,2026-01-01,Valid Twin,Movie,2000\n" +
+                "$invalidDate,8,2026-02-30,Invalid Date,Movie,2000\n" +
+                "$invalidYear,8,,Invalid Year,Movie,not-a-year\n",
+        )
+
+        val result = importer.import(path)
+
+        assertThat(result.counts).isEqualTo(ImportCounts(7, 1, 0, 0, 6))
+        assertThat(result.skipped).isZero()
+        assertThat(result.issues.map { it.row }).containsExactly(3, 4, 5, 6, 7, 8)
+        assertThat(history.findRating(accepted)).isNotNull()
+        listOf(duplicated, mixedDuplicate, invalidDate, invalidYear).forEach { id ->
+            assertThat(history.findRating(id)).isNull()
+            assertThat(catalog.findByExternalId(ExternalTitleId(ExternalIdNamespace.IMDB_TITLE, id))).isNull()
+        }
+    }
+
+    @Test
+    fun `identical export digest is a no-op retaining original rating and provenance`() {
+        val id = imdbId()
+        val path = ratingCsv(id, 7, "2026-01-01")
+        importer.import(path)
+        val original = history.findRating(id)
+
+        val repeat = importer.import(path)
+
+        assertThat(repeat.alreadyImported).isTrue()
+        assertThat(repeat.counts).isEqualTo(ImportCounts(0, 0, 0, 0, 0))
+        assertThat(repeat.skipped).isEqualTo(1)
+        assertThat(repeat.issues).isEmpty()
+        assertThat(history.findRating(id)).isEqualTo(original)
+    }
+
+    @Test
+    fun `only a newer known rating date can replace an existing different rating`() {
+        val id = imdbId()
+        importer.import(ratingCsv(id, 7, "2026-01-02"))
+        val original = requireNotNull(history.findRating(id))
+        listOf("2026-01-01", "2026-01-02", "").forEach { date ->
+            val conflict = importer.import(ratingCsv(id, 9, date))
+            assertThat(conflict.skipped).isEqualTo(1)
+            assertThat(conflict.issues.map { it.reason }).containsExactly("Rating date conflict")
+            assertThat(history.findRating(id)).isEqualTo(original)
+        }
+
+        val newer = importer.import(ratingCsv(id, 8, "2026-01-03"))
+
+        assertThat(newer.counts.updated).isEqualTo(1)
+        val current = requireNotNull(history.findRating(id))
+        assertThat(current.rating).isEqualTo(8)
+        assertThat(current.ratedOn).isEqualTo(LocalDate.parse("2026-01-03"))
+        assertThat(current.firstImportId).isEqualTo(original.firstImportId)
+        assertThat(current.lastImportId).isNotEqualTo(original.lastImportId)
+    }
+
+    @Test
+    fun `a newer date for an unchanged rating prevents a later intermediate-date overwrite`() {
+        val id = imdbId()
+        importer.import(ratingCsv(id, 7, "2026-01-01"))
+
+        val unchanged = importer.import(ratingCsv(id, 7, "2026-01-03"))
+        val staleChange = importer.import(ratingCsv(id, 9, "2026-01-02"))
+
+        assertThat(unchanged.counts.unchanged).isEqualTo(1)
+        assertThat(staleChange.skipped).isEqualTo(1)
+        val current = requireNotNull(history.findRating(id))
+        assertThat(current.rating).isEqualTo(7)
+        assertThat(current.ratedOn).isEqualTo(LocalDate.parse("2026-01-03"))
+    }
+
+    @Test
+    fun `concurrent service imports serialize and return one imported and one digest no-op`() {
+        val id = imdbId()
+        val path = ratingCsv(id, 7, "2026-01-01")
+        val start = CountDownLatch(1)
+        Executors.newFixedThreadPool(2).use { executor ->
+            val attempts = (1..2).map {
+                executor.submit<dev.pmtd.agent.imdb.ImportResult> {
+                    check(start.await(5, TimeUnit.SECONDS))
+                    importer.import(path)
+                }
+            }
+            start.countDown()
+            val results = attempts.map { it.get(20, TimeUnit.SECONDS) }
+            assertThat(results.map { it.alreadyImported }).containsExactlyInAnyOrder(false, true)
+            assertThat(results.map { it.counts.inserted }).containsExactlyInAnyOrder(1, 0)
+        }
+        assertThat(jdbc.sql("SELECT count(*) FROM imported_rating WHERE imdb_id = :id")
+            .param("id", id).query(Long::class.java).single()).isEqualTo(1)
+    }
+
+    private fun fixtureCsv(contents: String): Path = fixtureDirectory.resolve("${UUID.randomUUID()}.csv")
+        .also { Files.writeString(it, contents) }
+
+    private fun ratingCsv(id: String, rating: Int, date: String): Path =
+        fixtureCsv("$importHeader\n$id,$rating,$date,Synthetic,Movie,2000\n")
+
+    private val importHeader = "Const,Your Rating,Date Rated,Title,Title Type,Year"
 
     private fun startContext(): ConfigurableApplicationContext {
         // Do not let ambient SPRING_DATASOURCE_*, SPRING_FLYWAY_* or spring.config.*
