@@ -11,16 +11,18 @@
 - Preserve unrelated changes; do not stage, overwrite, or revert them.
 
 ## Phase records — required for every task
-Use:
-- `docs/work_current_phase.md`: one active phase, task rows, approvals, evidence.
-- `docs/next_phase.md`: up to three upcoming phases, each with a short objective
-  and dependencies; no detailed task plans or completed work.
-- `docs/complete_phases.md`: approved phase closures only.
-- `docs/README.md`: documentation index and task-specific reading triggers.
+Read `docs/README.md` first on every task. Check its active work, upcoming
+phases and links. Update the index with the task outcome and review date.
 
-Before work, read the current and next boards. Add the requested task or promote
-the selected backlog item to the current board before implementation. Record
-scope, affected components, validation plan, and Last reviewed; apply G1.
+- `docs/README.md`: short index of active work, upcoming phases, completed work,
+  and archived records. Link to evidence instead of repeating it.
+- `docs/work_current_phase.md`: one active phase and its unfinished task rows.
+- `docs/next_phase.md`: up to three planned phases, one line per phase.
+- `docs/archive/complete_phases.md`: detailed evidence of G4-approved closures.
+
+Read both boards before work. Add the requested task or promote the selected
+backlog item to the current board before implementation. Record scope, affected
+components, validation plan and Last reviewed. Apply G1.
 
 Task row:
 `ID | Task / scope | Status | Gate | Request / decision / evidence | Last reviewed`
@@ -29,8 +31,9 @@ Statuses: `Not started`, `In progress`, `Awaiting G<n>`, `Blocked`,
 `Completed`, `Deferred`. Gate is the pending approval or `—`.
 
 Keep records concise and current. Record each gate request and explicit decision
-in its task row. Required phase/index maintenance is authorized as part of work;
-only an explicit user instruction suspends it.
+with its task. When a task finishes, move its summary and evidence link to the
+index. Preserve detailed approvals and evidence with the phase history. Required
+phase and index maintenance is authorized unless the user suspends it.
 
 ## Approval gates
 At a gate: stop the gated action, record and present the request, then wait.
@@ -39,7 +42,7 @@ in the current request counts; record it instead of asking again.
 
 | Gate | Trigger | Present |
 | --- | --- | --- |
-| G0 Planning | Add/remove/reorder phases or materially change approved phase scope | Proposed change, rationale, consequences, alternatives |
+| G0 Planning | Plan the next tasks or add, remove, reorder or materially change phase scope | Use Proposed Phases Peruse (`proposed-phases-peruse`, PPP). Present the proposed change, rationale, consequences and alternatives. |
 | G1 Intake | Add a task to the current phase | Scope, affected components, validation plan |
 | G2 Design | New module, dependency, wiring pattern, migration, public API shape, or deployment architecture | Approach, rejected alternative, rollback/migration implications |
 | G3 Delivery | Push or merge | Files, checks/results, commit if any, limitations |
@@ -58,7 +61,8 @@ Before reporting:
 - Record files changed, commands/results, commit hash if one exists, and checks
   not run with reasons. Never claim unperformed validation.
 - Record prioritized follow-ups without exceeding the backlog limit.
-- After G4 approval, append the closure and clear the closed current phase.
+- After G4 approval, summarize the closure in the index, append its detailed
+  evidence to the archived ledger and clear the closed current phase.
 
 Do not commit against a `Not started` task. Prefix authorized commits with the
 task ID. Completion does not itself authorize committing, pushing, or merging.
@@ -68,13 +72,15 @@ End every response with:
 or `Phase records: unchanged — <reason>`.
 
 ## Documentation
-After the phase boards, use `docs/README.md` for targeted reading. Read only
-relevant code/docs; do not sweep entire trees during routine work.
-Update the index when active documents are added, moved, or retired.
+Use `docs/README.md` to find relevant documents. Read only what the task needs.
+Move documents that are obsolete or whose work is complete to `docs/archive/`
+once they no longer support current or upcoming work. The user authorized
+these moves as part of the documentation workflow on 2026-11-20. Preserve their
+relative paths within `docs/`, update affected links and mark each move as
+archived in the index.
 
-Do not discover, search, read, validate, or modify `docs/archive/` unless the user
-explicitly requests the relevant archived material. Propose archival; do not
-move documents there without approval.
+Exclude `docs/archive/` from routine discovery. Read specific archived evidence
+when requested or needed for an authorized history reconciliation or closure.
 
 Report conflicts between documentation and implementation; do not silently
 change intended behavior to match either.

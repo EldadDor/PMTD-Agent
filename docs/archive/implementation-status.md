@@ -1,7 +1,7 @@
 # Implementation status
 
-Historical implementation evidence. Use [the current phase board](work_current_phase.md)
-for live task status and [the documentation index](README.md) for reading guidance.
+Historical implementation evidence. Use [the current phase board](../work_current_phase.md)
+for live task status and [the documentation index](../README.md) for reading guidance.
 
 Last reviewed: 2026-11-20 (Asia/Jerusalem)
 

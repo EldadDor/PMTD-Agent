@@ -137,11 +137,8 @@ suite run needs a fresh empty schema. Reports are in `build/reports/tests/postgr
 
 ## Project records and privacy
 
-See [implementation status](docs/implementation-status.md),
-[decisions](docs/decisions.md), and the
-[foundation manifest](docs/foundation-manifest.md). The
-[AI foundation manifest](docs/ai-foundation-manifest.md) records this dependency
-step and its disabled runtime behavior.
+See the [project index](docs/README.md) for phase status, decisions, deployment
+instructions and archived implementation evidence.
 
 Keep real IMDb exports, ratings, feedback, tokens and databases in ignored
 `private/` or `data/` directories. Use fabricated test data. `.gitignore` also

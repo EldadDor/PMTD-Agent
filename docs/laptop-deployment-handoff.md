@@ -26,6 +26,20 @@ commands below current. The operator performs the steps on the laptop.
   Preserve local changes
   before changing revisions. No database rollback is needed for this rollout.
 
+## First-time laptop setup
+
+Clone the repository if needed. Open the checkout in PowerShell and confirm
+Docker Desktop is using Linux containers and Java 25 is on the path. The first
+Gradle build and image pull need network access.
+
+```powershell
+git clone '<repository-url>' PMTD-Agent
+Set-Location PMTD-Agent
+docker version
+docker info --format '{{.OSType}}'  # Expected: linux
+java -version                     # Expected: Java 25
+```
+
 ## Continuous Laptop deployment
 
 Run in PowerShell on the laptop from the existing repository checkout. Docker
@@ -71,4 +85,4 @@ docker logs pmtd-agent-smoke
 Leave the container running until you wish to stop it. To stop and remove it,
 run `docker stop pmtd-agent-smoke`; `--rm` removes it automatically. If port
 18080 is occupied, choose a different host port in both the publish option and
-health URL. See [initial Docker instructions](docker-instructions.md) for setup.
+health URL. Keep local configuration, private IMDb exports and credentials outside the smoke container.

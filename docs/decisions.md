@@ -15,7 +15,7 @@ tester while preserving the read-only hook. Those changes are implemented; the
 application architecture and dependency choices below were proposals at that time.
 
 On 2026-11-16 the user approved the reviewed plan and requested project start.
-They then explicitly approved `foundation-manifest.md`: Boot 4.1.2, Kotlin 2.3.21,
+They then explicitly approved [the foundation manifest](archive/foundation-manifest.md): Boot 4.1.2, Kotlin 2.3.21,
 Gradle 9.2.1, existing Java 25, web/Actuator/test support, dependency downloads and
 isolated loopback health tests. This authorizes P1A-01. No commit, push, migration,
 deployment, database service, model download or real send is authorized.
@@ -33,15 +33,15 @@ pushes or merges, or constitute milestone acceptance or phase closure. The
 
 | ID | Choice | Recommendation / alternative | Still needed |
 | --- | --- | --- | --- |
-| D01 | Versions | Approved: Boot 4.1.2, Kotlin 2.3.21, Gradle 9.2.1, Java 25, and Spring AI 2.0.2 | AI foundation validation is recorded in implementation status. See P0-11 for laptop inference. |
-| D02 | Database | Laptop PostgreSQL 16.14 at `10.100.102.12:5432`. User approved provisioning and use on 2026-11-19. `pmtd_agent` holds app data, `pmtd_agent_test` holds integration fixtures, and both use the dedicated `pmtd_app` login. | The server lacks TLS, so the desktop connection uses `sslmode=disable`. V1 applied in `pmtd_agent.pmtd`. See implementation status for test evidence. |
+| D01 | Versions | Approved: Boot 4.1.2, Kotlin 2.3.21, Gradle 9.2.1, Java 25, and Spring AI 2.0.2 | AI foundation validation is recorded in [implementation history](archive/implementation-status.md). See P0-11 for laptop inference. |
+| D02 | Database | Laptop PostgreSQL 16.14 at `10.100.102.12:5432`. User approved provisioning and use on 2026-11-19. `pmtd_agent` holds app data, `pmtd_agent_test` holds integration fixtures, and both use the dedicated `pmtd_app` login. | The server lacks TLS, so the desktop connection uses `sslmode=disable`. V1 applied in `pmtd_agent.pmtd`. See [implementation history](archive/implementation-status.md) for test evidence. |
 | D03 | Messaging | User confirmed PMTD-Agent Messaging API activation and chose ngrok for desktop webhook testing on 2026-11-19. Channel settings are in ignored local YAML. | Signed webhook handler and ngrok tunnel pending. The user will set the HTTPS URL in the LINE console. Outbound token and quota remain pending. |
 | D04 | Ollama | On 2026-11-20 the user chose the existing laptop Ollama server for a Spark-X2.6-4B trial. Installed tag: `SparkLLM/Spark-X2.6-4B:latest` (BF16 GGUF, digest prefix `44ca4d700630`). Keep model pulls disabled. | P0-11 passed native Ollama and Spring AI chat with synthetic input. Final selection and the comparison in P1D-02 remain pending. |
 | D05 | Schedule | Deferred by user; manual-only POC path | Frequency/timezone/caps/quiet hours/resend policy later; no scheduler added |
 | D06 | Feedback | Deferred by user, including sequence of buttons/ratings/free text | Retained in MVP scope; implementation waits for later decision |
 | D07 | Hosting | Approved current target: this Windows desktop, Kotlin app run from IntelliJ; Codex may run Gradle tests. Laptop supplies PostgreSQL | Other laptop services after POC. Existing Kind + ArgoCD and Hostinger VPS are context only; VPS deployment is not currently considered. No container/K8s/ArgoCD/VPS configuration authorized |
 | D08 | TVmaze and watched history | User chose the free TVmaze account and public API for discovery on 2026-11-20. Keep watched status in local PostgreSQL. | TVmaze account sync is out of scope for now. General watched status storage still needs a schema design and approval. |
-| D09 | Docker operation | User will clone the repository and run all Docker commands manually on the laptop with Docker Desktop. Compose is available when needed. | Record laptop validation after the user runs it. See [Docker instructions](docker-instructions.md). |
+| D09 | Docker operation | User will clone the repository and run all Docker commands manually on the laptop with Docker Desktop. Compose is available when needed. | The user reported `UP` for the initial smoke check. Use the [deployment handoff](laptop-deployment-handoff.md) for later rollouts. |
 
 The approved selections above supersede earlier recommendations. The dedicated
 PMTD role and databases were provisioned with the supplied PostgreSQL login.
@@ -65,7 +65,7 @@ deployment is currently considered. Additional laptop services will be considere
 after the POC is complete. Use fixture-based/disabled integrations meanwhile.
 
 Proceed with the approved AI dependency at 2.0.2 and local validation, as described
-in `ai-foundation-manifest.md`; no repeated approval is needed for that choice.
+in [the AI foundation manifest](archive/ai-foundation-manifest.md); no repeated approval is needed for that choice.
 The user subsequently replied **Approved** to the explicit request to add the
 JDBC/Flyway dependencies and create the proposed V1 migration in
 `persistence-manifest.md`. P1A-02 schema/dependency review is approved; implement
@@ -82,7 +82,7 @@ push, merge, model download or deployment authorized.
   template. The user clarified that the supplied template governs the project
   from `.codex/AGENTS.md`. Root `AGENTS.md` points there. The template's gates
   and phase files supersede the earlier two-file workflow. Prior decisions and
-  implementation evidence remain recorded here and in `implementation-status.md`.
+  implementation evidence remain recorded here and in [implementation history](archive/implementation-status.md).
 
 - Exact version strings are now fixed. Resolved Spring AI 2.0.2 artifacts,
   compilation, disabled-model startup/tests and packaging passed with Boot 4.1.2
