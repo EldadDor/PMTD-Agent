@@ -41,6 +41,7 @@ pushes or merges, or constitute milestone acceptance or phase closure. The
 | D06 | Feedback | Deferred by user, including sequence of buttons/ratings/free text | Retained in MVP scope; implementation waits for later decision |
 | D07 | Hosting | Approved current target: this Windows desktop, Kotlin app run from IntelliJ; Codex may run Gradle tests. Laptop supplies PostgreSQL | Other laptop services after POC. Existing Kind + ArgoCD and Hostinger VPS are context only; VPS deployment is not currently considered. No container/K8s/ArgoCD/VPS configuration authorized |
 | D08 | TVmaze and watched history | User chose the free TVmaze account and public API for discovery on 2026-11-20. Keep watched status in local PostgreSQL. | TVmaze account sync is out of scope for now. General watched status storage still needs a schema design and approval. |
+| D09 | Docker operation | User will clone the repository and run all Docker commands manually on the laptop with Docker Desktop. Compose is available when needed. | Record laptop validation after the user runs it. See [Docker instructions](docker-instructions.md). |
 
 The approved selections above supersede earlier recommendations. The dedicated
 PMTD role and databases were provisioned with the supplied PostgreSQL login.

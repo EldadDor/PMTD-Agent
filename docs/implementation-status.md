@@ -5,11 +5,12 @@ for live task status and [the documentation index](README.md) for reading guidan
 
 Last reviewed: 2026-11-20 (Asia/Jerusalem)
 
-Current phase: Phase 0 — technical validation and decisions.
+Current phase: Phase 1B — IMDb history import. Phase 0 and Phase 1A closed with
+G4 approval on 2026-11-20. See `complete_phases.md` for outcomes and carry-over.
 Scope, the P1A-01 foundation manifest and Spring AI 2.0.2 are approved; the
 foundation and disabled AI dependency are implemented and verified. JDBC/Flyway,
 V1 and persistence primitives are verified against laptop PostgreSQL. Phase 0
-and Phase 1A remain open pending full phase acceptance.
+closure and Phase 1A desktop foundation acceptance are recorded in the ledger.
 
 ## Initial state
 
@@ -35,7 +36,7 @@ were unrelated to this project and are replaced by the supplied specification.
 | P1D-02 | Model selection, inference and bake-off | Deferred by user | Do not download models; user will select later |
 | P1C-02 / P1E-01 | Scheduling and feedback | Deferred by user | Keep manual/fixture path; revisit decisions later |
 | P1A-04 / P1F-02 | Container/deployment work | Deferred for current POC | Desktop IntelliJ operation first; no Kind/ArgoCD/VPS setup |
-| P0-08 | Adopt the supplied instructions template | See current phase board | Current status lives in `docs/work_current_phase.md`. |
+| P0-08 | Adopt the supplied instructions template | Completed | `1667cd6`; see the Phase 0 closure record. |
 
 ## Laptop PostgreSQL and LINE setup — 2026-11-19
 
