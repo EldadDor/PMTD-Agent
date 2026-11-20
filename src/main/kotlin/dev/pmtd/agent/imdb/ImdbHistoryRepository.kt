@@ -57,6 +57,11 @@ class ImdbHistoryRepository(private val jdbc: JdbcClient) {
             .update()
     }
 
+    fun ratingDistribution(): Map<Int, Long> = jdbc.sql(
+        "SELECT rating, COUNT(*) AS rating_count FROM imported_rating GROUP BY rating ORDER BY rating",
+    ).query { row, _ -> row.getInt("rating") to row.getLong("rating_count") }
+        .list().toMap()
+
     fun findRating(imdbId: String): ImportedRating? = jdbc.sql("SELECT * FROM imported_rating WHERE imdb_id = :imdbId")
         .param("imdbId", imdbId).query { row, _ ->
             ImportedRating(

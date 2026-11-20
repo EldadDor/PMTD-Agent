@@ -103,6 +103,17 @@ The command reports counts and record numbers for invalid or conflicting rows.
 It does not print titles or ratings. Equal ratings are counted as unchanged, and
 newer known rating dates are retained. Identical exports are skipped by digest.
 
+To show the local rating distribution, run:
+
+```powershell
+java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=postgres,local' --imdb-stats
+```
+
+The command prints counts for each rating from 1 to 10, including zeros. It
+uses the existing database and disables Flyway for this invocation. The output
+is personal aggregate information; keep it private. Genre statistics are not
+available because the importer does not store genres.
+
 Regular `test` excludes PostgreSQL integration tests and forces the test profile;
 it needs no database credentials. It compiles the integration suite and checks
 offline profile wiring with Flyway disabled, without opening a DB connection.
