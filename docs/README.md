@@ -2,7 +2,7 @@
 
 Review before each task and update after it. Last reviewed: 2026-11-21 (Asia/Jerusalem).
 
-- **Current:** [Phase 1C — Discovery and polling](work_current_phase.md). TVmaze persistence and the TMDB import are verified. The user reported completing the laptop test steps. [Rated-title metadata](rated-title-enrichment-proposal.md) passed offline and disposable PostgreSQL tests; G3 approved, application migration and real-history requests await authorization. Schedule times follow a manual full run.
+- **Current:** [Phase 1C — Discovery and polling](work_current_phase.md). TVmaze persistence and the TMDB import are verified. The user reported completing the laptop test steps. [Rated-title metadata](rated-title-enrichment-proposal.md) passed tests and V4 was applied to the application database; real-history requests await authorization. Schedule times follow a manual full run.
 - **Next:** [1D Ranking and AI](next_phase.md) · [Later phases](proposed_next_phases.md). G0 approved the Phase 1C sequence and roadmap arrangement.
 - **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [Discovery design](discovery-persistence-proposal.md) · [TMDB preview](tmdb-discovery-proposal.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md)
 

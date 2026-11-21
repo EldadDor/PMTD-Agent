@@ -7,9 +7,9 @@ commands below current. The operator performs the steps on the laptop.
 
 ## Pending rollout — rated-title metadata
 
-V4 and the enrichment command passed disposable PostgreSQL validation. Applying
-V4 to the application database awaits separate approval. A normal application startup with
-the `postgres` profile applies pending Flyway migrations. The enrichment command
+V4 and the enrichment command passed disposable PostgreSQL validation. The user
+approved V4, and it was applied and verified on `pmtd_agent.pmtd` on 2026-11-21.
+A normal application startup with the `postgres` profile applies pending Flyway migrations. The enrichment command
 disables Flyway. The first real-history lookup also needs explicit approval because
 it sends IMDb title IDs to TMDB. See the [enrichment design](rated-title-enrichment-proposal.md).
 

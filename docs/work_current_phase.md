@@ -21,6 +21,6 @@ passed. The user reported completing the laptop preview and import steps success
 
 | ID | Task / scope | Status | Gate | Request / decision / evidence | Last reviewed |
 | --- | --- | --- | --- | --- | --- |
-| P1C-05 | Prepare metadata for personalized ranking | In progress | Application migration and real-history authorization | G2 and G3 approved. Implementation passed 45 offline and 23 tester-led disposable PostgreSQL tests. [Verification](rated-title-enrichment-proposal.md#verification). | 2026-11-21 |
+| P1C-05 | Prepare metadata for personalized ranking | In progress | Real-history authorization | G2 and G3 approved; V4 applied to `pmtd_agent.pmtd` after user approval. Implementation passed 45 offline and 23 tester-led disposable PostgreSQL tests. [Verification](rated-title-enrichment-proposal.md#verification). | 2026-11-21 |
 
 See the [index](README.md#completed) for completed work.
