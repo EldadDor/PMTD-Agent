@@ -1,9 +1,9 @@
 # Project index
 
-Review before each task and update after it. Last reviewed: 2026-11-21 (Asia/Jerusalem).
+Review before each task and update after it. Last reviewed: 2026-11-22 (Asia/Jerusalem).
 
-- **Current:** [Phase 1C — Discovery and polling](work_current_phase.md). TVmaze persistence and the TMDB import are verified. The user reported completing the laptop test steps. [Rated-title metadata](rated-title-enrichment-proposal.md) passed tests and V4 was applied to the application database; real-history requests await authorization. Schedule times follow a manual full run.
-- **Next:** [1D Ranking and AI](next_phase.md) · [Later phases](proposed_next_phases.md). G0 approved the Phase 1C sequence and roadmap arrangement.
+- **Current:** [Phase 1D — Deterministic ranking](work_current_phase.md). The [personalized preview](deterministic-ranking-proposal.md) passed offline and disposable PostgreSQL checks. The user approved G3 delivery of `f76ae3c` on 2026-11-22. The one-time real-history preview awaits separate authorization. Schedule times follow a manual full run.
+- **Next:** [1E Notifications and feedback](next_phase.md) · [Later phases](proposed_next_phases.md). Revised sequence approved at G0 on 2026-11-21.
 - **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [Discovery design](discovery-persistence-proposal.md) · [TMDB preview](tmdb-discovery-proposal.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md)
 
 ## Completed

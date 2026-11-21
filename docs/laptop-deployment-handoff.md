@@ -5,6 +5,15 @@ update **Current rollout** with the changes, prerequisites, database or
 configuration actions, verification and any rollback details. Keep the reusable
 commands below current. The operator performs the steps on the laptop.
 
+## Pending rollout — personalized preview
+
+The G2-approved read-only ranking preview uses the existing PostgreSQL schema;
+no migration is added. It reads already imported TMDB candidates and local
+ratings, and requires explicit authorization before a real-history preview.
+After delivery, use the reusable deployment commands below and the
+[preview instructions](../README.md#personalized-recommendation-preview).
+The default-profile Docker smoke check does not exercise PostgreSQL or ranking.
+
 ## Pending rollout — rated-title metadata
 
 V4 and the enrichment command passed disposable PostgreSQL validation. The user
