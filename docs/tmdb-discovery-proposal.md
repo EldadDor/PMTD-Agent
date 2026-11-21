@@ -68,7 +68,7 @@ page cap. It checked 20 candidate identities, all unmatched in the synthetic
 catalog. Mock tests separately cover positive matches and conflicts. Read-only
 queries before and after confirmed identical catalog rows, external IDs and
 Flyway history. The token was supplied to the process for this run only.
-The implementation and documentation updates are uncommitted.
+The implementation and documentation updates were committed in `a45f843`.
 
 Alternative considered: persist candidates and links on the first TMDB run.
 Reviewing the match evidence in the preview first reduces the risk of attaching

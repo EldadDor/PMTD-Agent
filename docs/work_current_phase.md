@@ -13,7 +13,10 @@ prioritizes original language and show origin over release region. Choose
 schedule times after a manual full run.
 
 P1C-02 is complete. The [TMDB preview](tmdb-discovery-proposal.md#verification)
-passed its approved live check against a disposable catalog. Persisting TMDB
-observations and trusted links remains the next discovery gap.
+passed its approved live check against a disposable catalog.
+
+| ID | Task / scope | Status | Gate | Request / decision / evidence | Last reviewed |
+| --- | --- | --- | --- | --- | --- |
+| P1C-03 | Persist bounded TMDB candidate observations and verified links | Awaiting G2 | G2 | User requested continuation (G1). Review [V3 design](tmdb-persistence-proposal.md), transactional identity handling and bounded runs. Validate with offline fixtures and an authorized disposable PostgreSQL target. G2 requested for migration creation and command. | 2026-11-21 |
 
 See the [index](README.md#completed) for completed work.
