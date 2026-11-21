@@ -2,9 +2,10 @@
 
 Last reviewed: 2026-11-21 (Asia/Jerusalem)
 
-**P1C-03 — G2 requested.** Build on the verified TMDB preview to provide stored
+**P1C-03 — G2 approved on 2026-11-21.** Build on the verified TMDB preview to provide stored
 candidate evidence for deterministic ranking. The user requested continuation.
-This document proposes V3 and a bounded manual command for review.
+V3 and the bounded manual command are implemented. See [Verification](#verification)
+for disposable testing and the application database migration.
 
 ## Data and identity
 
@@ -106,3 +107,27 @@ Alternative: persist directly into the existing catalog and attach every TMDB
 ID. A separate source table preserves observations when an identity is missing
 or disputed and avoids changing IMDb ownership. Ranking can read verified links
 and source candidates independently.
+
+## Verification
+
+- Offline `test bootJar` passed 40 tests. The user authorized V1–V3 execution
+  on the disposable PostgreSQL database. `postgresTest` passed 19 tests in
+  `pmtd_agent_test.pmtd_test_tmdb_6efa88b3b1d4` and 20 with the concurrency
+  check in `pmtd_agent_test.pmtd_test_tmdb_50b50416418e`. Both schemas remain
+  for inspection.
+- The packaged live import ran twice in the second disposable schema for
+  2026-11-14 through 2026-11-20. Each run observed 77 candidates, and the
+  second run added no candidate rows. Movie results hit the two-page cap.
+  An initial attempt used an incorrectly entered token and returned HTTP 401.
+- On 2026-11-21, the user separately authorized V3 on `pmtd_agent.pmtd`.
+  The JAR's migration files matched the workspace SQL, and V3 matched the
+  approved design. Read-only queries confirmed the configured endpoint,
+  database, role and existing V1–V2 history. The first preflight stopped
+  because PostgreSQL reported an internal address distinct from the configured
+  endpoint. Rechecking the connection through the configured endpoint and
+  confirming the existing migrations resolved the mismatch.
+- Ran the packaged app with the `postgres` profile, web startup disabled
+  and `--spring.flyway.target=3`. Read-only queries confirmed V3 succeeded,
+  earlier history entries were unchanged, and both empty TMDB tables had the
+  expected keys and catalog index. No application catalog import was run.
+  The user authorized the P1C-03 commit and push on 2026-11-21.

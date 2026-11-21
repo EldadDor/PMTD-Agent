@@ -2,11 +2,15 @@
 
 Review before each task and update after it. Last reviewed: 2026-11-21 (Asia/Jerusalem).
 
-- **Current:** [Phase 1C — Discovery and polling](work_current_phase.md). TVmaze persistence and the TMDB preview are verified. The [TMDB persistence design](tmdb-persistence-proposal.md) awaits G2. Schedule times follow a manual full run.
+- **Current:** [Phase 1C — Discovery and polling](work_current_phase.md). TVmaze persistence and the TMDB import are verified. Both discovery migrations are applied to the application database. Schedule times follow a manual full run.
 - **Next:** [1D Ranking and AI](next_phase.md) · [Later phases](proposed_next_phases.md). G0 approved the Phase 1C sequence and roadmap arrangement.
 - **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [Discovery design](discovery-persistence-proposal.md) · [TMDB preview](tmdb-discovery-proposal.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md)
 
 ## Completed
+
+- **P1C-03:** The bounded TMDB import passed 40 offline and 20 disposable PostgreSQL tests. Two live sample runs against the disposable catalog stored the same 77 candidates without duplicates. The user approved V3 on `pmtd_agent.pmtd`, and Flyway history and schema checks passed on 2026-11-21. User authorized commit and push (G3). [Verification](tmdb-persistence-proposal.md#verification)
+
+- **P1C-04:** Created the ignored root `.env` with PostgreSQL settings from local configuration. Verified the seven entries match and Git ignores the file.
 
 - **P1C-02:** Read-only TMDB preview verified against the live API and disposable catalog. 39 offline tests passed. Committed in `a45f843`. [Validation evidence](tmdb-discovery-proposal.md#verification)
 

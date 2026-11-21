@@ -15,8 +15,9 @@ schedule times after a manual full run.
 P1C-02 is complete. The [TMDB preview](tmdb-discovery-proposal.md#verification)
 passed its approved live check against a disposable catalog.
 
-| ID | Task / scope | Status | Gate | Request / decision / evidence | Last reviewed |
-| --- | --- | --- | --- | --- | --- |
-| P1C-03 | Persist bounded TMDB candidate observations and verified links | Awaiting G2 | G2 | User requested continuation (G1). Review [V3 design](tmdb-persistence-proposal.md), transactional identity handling and bounded runs. Validate with offline fixtures and an authorized disposable PostgreSQL target. G2 requested for migration creation and command. | 2026-11-21 |
+P1C-03 is complete. The user approved applying V3 to the application database
+on 2026-11-21. [Flyway and schema verification](tmdb-persistence-proposal.md#verification)
+passed and both TMDB tables are empty. The first application catalog import is
+still pending.
 
 See the [index](README.md#completed) for completed work.

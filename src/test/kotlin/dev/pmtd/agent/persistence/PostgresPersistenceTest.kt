@@ -1,6 +1,12 @@
 package dev.pmtd.agent.persistence
 
 import dev.pmtd.agent.MovieTvAgentApplication
+import dev.pmtd.agent.discovery.TmdbBatch
+import dev.pmtd.agent.discovery.TmdbCandidate
+import dev.pmtd.agent.discovery.TmdbImport
+import dev.pmtd.agent.discovery.TmdbMedia
+import dev.pmtd.agent.discovery.TmdbObservation
+import dev.pmtd.agent.discovery.TmdbResults
 import dev.pmtd.agent.discovery.Episode
 import dev.pmtd.agent.discovery.TvmazeScheduleImport
 import dev.pmtd.agent.catalog.CatalogIdentityConflictException
@@ -112,15 +118,15 @@ class PostgresPersistenceTest {
     fun `migration is confined to target schema and is not repeated`() {
         assertThat(jdbc.sql("SELECT current_schema()").query(String::class.java).single()).isEqualTo(schema)
         val flyway = context.getBean(Flyway::class.java)
-        assertThat(flyway.info().applied()).hasSize(2)
-        assertThat(flyway.info().current().version.version).isEqualTo("2")
+        assertThat(flyway.info().applied()).hasSize(3)
+        assertThat(flyway.info().current().version.version).isEqualTo("3")
         assertThat(flyway.migrate().migrationsExecuted).isZero()
         flyway.validate()
         val tables = jdbc.sql("SELECT tablename FROM pg_tables WHERE schemaname = :schema")
             .param("schema", schema).query(String::class.java).list()
         assertThat(tables).containsExactlyInAnyOrder(
             "flyway_schema_history", "catalog_title", "title_external_id", "imdb_import_batch", "imported_rating",
-            "tvmaze_schedule_episode", "tvmaze_schedule_checkpoint",
+            "tvmaze_schedule_episode", "tvmaze_schedule_checkpoint", "tmdb_candidate", "tmdb_discovery_run",
         )
     }
 
@@ -246,7 +252,7 @@ class PostgresPersistenceTest {
         context.close()
         context = startContext()
         assertThat(catalog.findById(title.id)).isEqualTo(title)
-        assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(2)
+        assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(3)
     }
 
     @Test
@@ -427,6 +433,64 @@ class PostgresPersistenceTest {
         }
         assertThat(jdbc.sql("SELECT count(*) FROM tvmaze_schedule_episode WHERE country = 'CA' AND episode_id = 9912351")
             .query(Long::class.java).single()).isEqualTo(1)
+    }
+
+    @Test
+    fun `TMDB import preserves verified identity on conflicting and unchecked later observations`() {
+        val catalogTitle = title().copy(kind = TitleKind.MOVIE)
+        val imdb = imdbId()
+        catalog.save(catalogTitle)
+        catalog.attachExternalId(catalogTitle.id, ExternalTitleId(ExternalIdNamespace.IMDB_TITLE, imdb), "fixture", now)
+        val item = TmdbCandidate(TmdbMedia.MOVIE, 555001, "Fixture", LocalDate.parse("2026-11-20"), "en", listOf(18), listOf("US"))
+        fun batch(checked: Boolean, id: String?): TmdbBatch {
+            val result = TmdbResults(listOf(item), true, 2)
+            return TmdbBatch(TmdbMedia.MOVIE, result, listOf(TmdbObservation(item, checked, id)))
+        }
+        val empty = TmdbBatch(TmdbMedia.TV, TmdbResults(emptyList(), false, 1), emptyList())
+        val service = context.getBean(TmdbImport::class.java)
+        val day = LocalDate.parse("2026-11-20")
+        assertThat(service.save(day, day, now, batch(true, imdb), empty).truncated).isTrue()
+        assertThat(service.save(day, day, now, batch(true, "tt9999999999"), empty).conflicts).isEqualTo(1)
+        service.save(day, day, now, batch(false, null), empty)
+        val row = jdbc.sql("SELECT imdb_id, catalog_title_id, link_status FROM tmdb_candidate WHERE media_type='movie' AND tmdb_id=555001")
+            .query { rs, _ -> Triple(rs.getString(1), rs.getObject(2, UUID::class.java), rs.getString(3)) }.single()
+        assertThat(row).isEqualTo(Triple(imdb, catalogTitle.id, "linked"))
+    }
+
+    @Test
+    fun `TMDB observations and run evidence roll back together`() {
+        val item = TmdbCandidate(TmdbMedia.MOVIE, 555002, "Fixture", null, "en", emptyList(), emptyList())
+        val movie = TmdbBatch(TmdbMedia.MOVIE, TmdbResults(listOf(item), false, 1), listOf(TmdbObservation(item, true, null)))
+        val tv = TmdbBatch(TmdbMedia.TV, TmdbResults(emptyList(), false, 1), emptyList())
+        val day = LocalDate.parse("2031-01-01")
+        assertThatThrownBy { transactions.executeWithoutResult {
+            context.getBean(TmdbImport::class.java).save(day, day, now, movie, tv)
+            throw IllegalStateException("fixture rollback")
+        } }.isInstanceOf(IllegalStateException::class.java)
+        assertThat(jdbc.sql("SELECT count(*) FROM tmdb_candidate WHERE media_type='movie' AND tmdb_id=555002").query(Long::class.java).single()).isZero()
+        assertThat(jdbc.sql("SELECT count(*) FROM tmdb_discovery_run WHERE requested_from = :day").param("day", day).query(Long::class.java).single()).isZero()
+    }
+
+    @Test
+    fun `concurrent TMDB imports retain one candidate and record both runs`() {
+        val service = context.getBean(TmdbImport::class.java)
+        val item = TmdbCandidate(TmdbMedia.MOVIE, 555003, "Concurrent fixture", null, "en", emptyList(), emptyList())
+        val movie = TmdbBatch(TmdbMedia.MOVIE, TmdbResults(listOf(item), false, 1), listOf(TmdbObservation(item, true, null)))
+        val tv = TmdbBatch(TmdbMedia.TV, TmdbResults(emptyList(), false, 1), emptyList())
+        val day = LocalDate.parse("2031-01-02")
+        val start = CountDownLatch(1)
+        Executors.newFixedThreadPool(2).use { executor ->
+            val jobs = (1..2).map {
+                executor.submit<Int> {
+                    check(start.await(5, TimeUnit.SECONDS))
+                    service.save(day, day, now, movie, tv).candidates
+                }
+            }
+            start.countDown()
+            assertThat(jobs.map { it.get(15, TimeUnit.SECONDS) }).containsExactly(1, 1)
+        }
+        assertThat(jdbc.sql("SELECT count(*) FROM tmdb_candidate WHERE media_type='movie' AND tmdb_id=555003").query(Long::class.java).single()).isEqualTo(1)
+        assertThat(jdbc.sql("SELECT count(*) FROM tmdb_discovery_run WHERE requested_from=:day").param("day", day).query(Long::class.java).single()).isEqualTo(2)
     }
 
     private fun fixtureCsv(contents: String): Path = fixtureDirectory.resolve("${UUID.randomUUID()}.csv")

@@ -108,6 +108,20 @@ class TmdbPreviewTest {
     }
 
     @Test
+    fun `import fetch caps identity requests and preserves truncated page metadata`() {
+        val movies = (1..11).map { movie(it) }
+        response(discoverUrl(TmdbMedia.MOVIE, 1), page(1, 3, *movies.toTypedArray()))
+        response(discoverUrl(TmdbMedia.MOVIE, 2), page(2, 3))
+        for (id in 1..10) response("/3/movie/$id/external_ids", """{"id":$id,"imdb_id":null}""")
+        val batch = fetchTmdbBatch(discovery, TmdbMedia.MOVIE, from, to)
+        assertThat(batch.results.pagesFetched).isEqualTo(2)
+        assertThat(batch.results.morePages).isTrue()
+        assertThat(batch.observations.count { it.checked }).isEqualTo(10)
+        assertThat(batch.observations.last().checked).isFalse()
+        server.verify()
+    }
+
+    @Test
     fun `rejects overlong or reversed windows before requests`() {
         assertThatThrownBy { discovery.discover(TmdbMedia.TV, from, to.plusDays(2)) }
             .hasMessageContaining("31 calendar days")

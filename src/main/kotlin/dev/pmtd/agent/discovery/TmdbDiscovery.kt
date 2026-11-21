@@ -44,7 +44,7 @@ internal data class TmdbCandidate(
     val originCountries: List<String>,
 )
 
-internal data class TmdbResults(val candidates: List<TmdbCandidate>, val morePages: Boolean)
+internal data class TmdbResults(val candidates: List<TmdbCandidate>, val morePages: Boolean, val pagesFetched: Int)
 
 internal class TmdbDiscovery(
     token: String,
@@ -63,6 +63,7 @@ internal class TmdbDiscovery(
         validateTmdbWindow(from, to)
         val candidates = linkedMapOf<Long, TmdbCandidate>()
         var totalPages = 1
+        var pagesFetched = 0
         for (page in 1..PAGE_LIMIT) {
             if (page > totalPages) break
             val root = request("/3/discover/${media.resource}") { request ->
@@ -79,6 +80,7 @@ internal class TmdbDiscovery(
             require(root.path("page").isIntegralNumber && root.path("page").asLong() == page.toLong()) {
                 "Unexpected TMDB page"
             }
+            pagesFetched++
             val pages = root.path("total_pages")
             require(pages.isIntegralNumber && pages.canConvertToInt() && pages.asInt() >= 0) {
                 "Invalid TMDB page count"
@@ -108,7 +110,7 @@ internal class TmdbDiscovery(
                 candidates.putIfAbsent(id, TmdbCandidate(media, id, title, date, language, genres, countries))
             }
         }
-        return TmdbResults(candidates.values.toList(), totalPages > PAGE_LIMIT)
+        return TmdbResults(candidates.values.toList(), totalPages > PAGE_LIMIT, pagesFetched)
     }
 
     fun imdbId(candidate: TmdbCandidate): String? {

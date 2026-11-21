@@ -10,6 +10,10 @@ import org.springframework.core.env.MapPropertySource
 import dev.pmtd.agent.catalog.CatalogRepository
 import dev.pmtd.agent.discovery.TmdbDiscovery
 import dev.pmtd.agent.discovery.TmdbPreview
+import dev.pmtd.agent.discovery.TmdbImport
+import dev.pmtd.agent.discovery.TmdbMedia
+import dev.pmtd.agent.discovery.fetchTmdbBatch
+import java.time.Instant
 import dev.pmtd.agent.discovery.parseTmdbDate
 import dev.pmtd.agent.discovery.validateTmdbWindow
 import dev.pmtd.agent.discovery.runTvmaze
@@ -22,6 +26,10 @@ import java.nio.file.Path
 class MovieTvAgentApplication
 
 fun main(args: Array<String>) {
+    if (args.any { it.startsWith("--tmdb-import-") }) {
+        runTmdbImport(args)
+        return
+    }
     if (args.any { it.startsWith("--tmdb-preview-") }) {
         runTmdbPreview(args)
         return
@@ -105,8 +113,39 @@ fun main(args: Array<String>) {
     }
 }
 
+private fun runTmdbImport(args: Array<String>) {
+    require(args.none { it == "--imdb-stats" || it.startsWith("--import-imdb=") ||
+        it.startsWith("--tvmaze-") || it.startsWith("--tmdb-preview-") }) { "Use only one command" }
+    val command = args.filter { it.startsWith("--tmdb-import-") }
+    require(command.size == 2 && command.map { it.substringBefore('=') }.toSet() ==
+        setOf("--tmdb-import-from", "--tmdb-import-to")) { "Provide from and to exactly once" }
+    val options = command.associate { it.substringBefore('=') to it.substringAfter('=', "") }
+    val from = parseTmdbDate(options.getValue("--tmdb-import-from"))
+    val to = parseTmdbDate(options.getValue("--tmdb-import-to"))
+    validateTmdbWindow(from, to)
+    val appArgs = args.filterNot { it.startsWith("--tmdb-import-") }.toTypedArray()
+    SpringApplicationBuilder(MovieTvAgentApplication::class.java).web(WebApplicationType.NONE)
+        .initializers({ context -> context.environment.propertySources.addFirst(
+            MapPropertySource("tmdbImportCommand", mapOf("spring.flyway.enabled" to false, "spring.sql.init.mode" to "never"))
+        ) }).run(*appArgs).use { context ->
+            require("postgres" in context.environment.activeProfiles) { "The postgres profile is required" }
+            val token = context.environment.getProperty("PMTD_TMDB_READ_TOKEN")
+            require(!token.isNullOrBlank()) { "Set PMTD_TMDB_READ_TOKEN locally" }
+            val started = Instant.now()
+            val discovery = TmdbDiscovery(token)
+            val movies = fetchTmdbBatch(discovery, TmdbMedia.MOVIE, from, to)
+            val shows = fetchTmdbBatch(discovery, TmdbMedia.TV, from, to)
+            val result = context.getBean(TmdbImport::class.java).save(from, to, started, movies, shows)
+            println("This product uses the TMDB API but is not endorsed or certified by TMDB.")
+            println("Observed: ${result.candidates}; conflicts: ${result.conflicts}")
+            println("Movie pages: ${movies.results.pagesFetched}; truncated: ${movies.results.morePages}")
+            println("TV pages: ${shows.results.pagesFetched}; truncated: ${shows.results.morePages}")
+            println("Identity checks limited to 10 candidates per media type.")
+        }
+}
+
 private fun runTmdbPreview(args: Array<String>) {
-    require(args.none { it == "--imdb-stats" || it.startsWith("--import-imdb=") || it.startsWith("--tvmaze-") }) {
+    require(args.none { it == "--imdb-stats" || it.startsWith("--import-imdb=") || it.startsWith("--tvmaze-") || it.startsWith("--tmdb-import-") }) {
         "Use only one command"
     }
     val previewArgs = args.filter { it.startsWith("--tmdb-preview-") }

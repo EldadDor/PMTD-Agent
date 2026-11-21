@@ -5,6 +5,14 @@ update **Current rollout** with the changes, prerequisites, database or
 configuration actions, verification and any rollback details. Keep the reusable
 commands below current. The operator performs the steps on the laptop.
 
+## Next rollout — TMDB persistence
+
+Flyway applied the approved V3 migration to `pmtd_agent.pmtd` on 2026-11-21.
+Both TMDB tables and the catalog index are verified. The new TMDB tables are
+empty and the first application catalog import is pending. The import command
+disables Flyway. The laptop rollout remains manual. The user authorized publishing the implementation on 2026-11-21. See the [TMDB import instructions](../README.md#tmdb-candidate-import)
+and [verification](tmdb-persistence-proposal.md#verification).
+
 ## Current rollout
 
 - **Phase 1C — TVmaze manual schedule import:** V2 adds observation and

@@ -108,6 +108,20 @@ Flyway, and leaves catalog links untouched.
 
 This product uses the TMDB API but is not endorsed or certified by TMDB.
 
+## TMDB candidate import
+
+Once V3 has been separately authorized and applied, the manual import uses the
+same local token and database settings as the preview:
+
+```powershell
+java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=postgres,local' --tmdb-import-from=2026-11-01 --tmdb-import-to=2026-11-21
+```
+
+It reads at most two pages and checks at most ten IMDb IDs per media type.
+Truncated runs leave results unread. The command disables Flyway and stores
+source observations, not recommendations. Other PostgreSQL profile startups
+normally run Flyway and would apply any pending migration.
+
 ## PostgreSQL setup
 
 The laptop hosts `pmtd_agent` with schema `pmtd` and a dedicated `pmtd_app` login.
