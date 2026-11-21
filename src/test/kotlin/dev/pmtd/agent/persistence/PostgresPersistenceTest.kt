@@ -23,6 +23,7 @@ import dev.pmtd.agent.imdb.ImdbImportBatch
 import dev.pmtd.agent.imdb.ImdbImportService
 import dev.pmtd.agent.imdb.ImportCounts
 import dev.pmtd.agent.imdb.RatingWrite
+import dev.pmtd.agent.recommendation.RecommendationRepository
 import java.security.MessageDigest
 import java.nio.file.Files
 import java.nio.file.Path
@@ -560,6 +561,67 @@ class PostgresPersistenceTest {
         }
         assertThat(jdbc.sql("SELECT count(*) FROM rated_title_tmdb_metadata WHERE catalog_title_id=:id")
             .param("id", title.id).query(Long::class.java).single()).isEqualTo(1)
+    }
+
+    @Test
+    fun `recommendation snapshot excludes rated and uncertain identities and is repeatable`() {
+        val service = context.getBean(RatedTitleEnrichment::class.java)
+        val repo = context.getBean(RecommendationRepository::class.java)
+        val uniqueGenre = 991001L
+        val rated = (1..3).map { index ->
+            val title = title().copy(kind = TitleKind.MOVIE)
+            val id = imdbId()
+            catalog.save(title)
+            catalog.attachExternalId(title.id, ExternalTitleId(ExternalIdNamespace.IMDB_TITLE, id), "fixture", now)
+            val import = batch()
+            history.tryCreateBatch(import)
+            history.saveRating(RatingWrite(id, 10, null, import.id, 2, now))
+            service.record(RatedTitle(title.id, id, TmdbMedia.MOVIE),
+                RatedLookup.Matched(990100L + index, listOf(uniqueGenre), "en", listOf("US")), false)
+            title to id
+        }
+        // A stale discovery row must not bypass a later exact TMDB catalog link.
+        catalog.attachExternalId(rated[2].first.id, ExternalTitleId(ExternalIdNamespace.TMDB_MOVIE, "990203"), "fixture", now)
+        val nonRated = title().copy(kind = TitleKind.MOVIE)
+        catalog.save(nonRated)
+        catalog.attachExternalId(nonRated.id, ExternalTitleId(ExternalIdNamespace.IMDB_TITLE, imdbId()), "fixture", now)
+        catalog.attachExternalId(nonRated.id, ExternalTitleId(ExternalIdNamespace.TMDB_MOVIE, "990204"), "fixture", now)
+
+        val day = LocalDate.parse("2042-01-10")
+        fun insert(id: Long, imdb: String?, status: String = "unmatched", date: LocalDate? = day, media: String = "movie") {
+            jdbc.sql("""
+                INSERT INTO tmdb_candidate(media_type, tmdb_id, title, primary_date, original_language,
+                    genre_ids, origin_countries, imdb_id, link_status, first_seen_at, last_seen_at)
+                VALUES (:media, :id, 'Synthetic candidate', :date, 'en', '{991001}', '{US}', :imdb, :status, :now, :now)
+            """.trimIndent()).param("media", media).param("id", id).param("date", date, java.sql.Types.DATE)
+                .param("imdb", imdb, java.sql.Types.VARCHAR).param("status", status)
+                .param("now", java.time.OffsetDateTime.ofInstant(now, java.time.ZoneOffset.UTC)).update()
+        }
+        insert(990200, imdbId()) // eligible
+        insert(990201, rated[0].second) // exact IMDb rating
+        insert(990102, imdbId()) // matches a rated TMDB metadata ID
+        insert(990203, imdbId()) // matches a rated catalog TMDB ID
+        insert(990204, imdbId()) // inconsistent catalog IMDb identity
+        insert(990205, imdbId(), "not_checked")
+        insert(990206, imdbId(), "conflict")
+        insert(990207, null)
+        insert(990208, imdbId(), date = null)
+        insert(990209, imdbId(), date = day.plusDays(1))
+        insert(990210, imdbId(), media = "tv") // movie evidence cannot establish series support
+
+        val before = jdbc.sql("SELECT count(*) FROM flyway_schema_history").query(Long::class.java).single()
+        val first = repo.preview(day, day, 10)
+        val second = repo.preview(day, day, 10)
+        assertThat(first).isEqualTo(second)
+        assertThat(first.map { it.candidate.tmdbId }).containsExactly(990200L)
+        assertThat(first.single().score).isEqualTo(1_000_000)
+        assertThat(jdbc.sql("SELECT count(*) FROM flyway_schema_history").query(Long::class.java).single()).isEqualTo(before)
+        assertThat(jdbc.sql("SELECT count(*) FROM tmdb_candidate WHERE tmdb_id BETWEEN 990200 AND 990210")
+            .query(Long::class.java).single()).isEqualTo(10)
+        assertThatThrownBy { repo.preview(day, day.minusDays(1), 5) }.isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { repo.preview(day, day.plusDays(31), 5) }.isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { repo.preview(day, day, 0) }.isInstanceOf(IllegalArgumentException::class.java)
+        assertThatThrownBy { repo.preview(day, day, 11) }.isInstanceOf(IllegalArgumentException::class.java)
     }
 
     private fun fixtureCsv(contents: String): Path = fixtureDirectory.resolve("${UUID.randomUUID()}.csv")

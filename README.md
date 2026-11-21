@@ -2,8 +2,8 @@
 
 A local-first movie and TV discovery project. The initial foundation contains a
 Kotlin/Spring Boot application and a loopback health endpoint. Manual IMDb
-import, TVmaze discovery and a TMDB preview are available. Personalized ranking
-and messaging are planned. PostgreSQL JDBC is available through the opt-in
+import, TVmaze discovery, a TMDB preview and a local personalized ranking preview
+are available. Messaging is planned. PostgreSQL JDBC is available through the opt-in
 `postgres` profile.
 The Spring AI 2.0.2 Ollama starter is present. The default application disables
 chat, embeddings and model pulling. Spark-X2.6-4B is the first laptop Ollama trial.
@@ -137,6 +137,28 @@ The command does not send rating values, and prints aggregate outcomes only.
 Add `--tmdb-enrich-retry` to revisit unmatched and conflict attempts. It disables
 Flyway for this command and stops at 40 HTTP attempts, including retries. If a
 request fails, earlier completed titles remain saved.
+
+## Personalized recommendation preview
+
+The manual preview ranks stored TMDB candidates using genre evidence from local
+IMDb ratings. It only considers candidates with a checked IMDb identity and
+excludes known rated titles; an unrated title may still have been watched. The
+limited discovery and conservative identity checks can yield no recommendations.
+It makes no network requests, does not write to PostgreSQL, and disables Flyway.
+Movie dates are primary releases; TV dates are series premieres, not new-season
+events or streaming availability. Results reveal personal preferences and should
+be kept private. A preview using actual history requires separate authorization.
+
+Choose an inclusive window of at most 31 days for already-imported candidates:
+
+```powershell
+java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=postgres,local' --recommend-from=2026-11-01 --recommend-to=2026-11-21 --recommend-limit=5
+```
+
+The optional limit defaults to five and must be between one and ten. A candidate
+must meet the fixed initial relevance threshold; scores are a provisional
+heuristic, not a guarantee of relevance. Original English and US, UK or Australian
+origin are used to order equally relevant candidates.
 
 ## PostgreSQL setup
 

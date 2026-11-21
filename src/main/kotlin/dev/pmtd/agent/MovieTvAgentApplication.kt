@@ -20,6 +20,7 @@ import dev.pmtd.agent.discovery.validateTmdbWindow
 import dev.pmtd.agent.discovery.runTvmaze
 import dev.pmtd.agent.discovery.TvmazeDiscovery
 import dev.pmtd.agent.discovery.TvmazeScheduleImport
+import dev.pmtd.agent.recommendation.RecommendationRepository
 import java.time.LocalDate
 import java.nio.file.Path
 
@@ -27,6 +28,10 @@ import java.nio.file.Path
 class MovieTvAgentApplication
 
 fun main(args: Array<String>) {
+    if (args.any { it.startsWith("--recommend-") }) {
+        runRecommendationPreview(args)
+        return
+    }
     if (args.any { it.startsWith("--tmdb-enrich-") }) {
         runTmdbEnrichment(args)
         return
@@ -115,6 +120,52 @@ fun main(args: Array<String>) {
         result.issues.forEach { println("Row ${it.row}: ${it.reason}") }
     } finally {
         context.close()
+    }
+}
+
+private fun runRecommendationPreview(args: Array<String>) {
+    require(args.none { it == "--imdb-stats" || it.startsWith("--import-imdb") ||
+        it.startsWith("--tvmaze-") || it.startsWith("--tmdb-") }) { "Use only one command" }
+    val command = args.filter { it.startsWith("--recommend-") }
+    val pairs = command.map { it.substringBefore('=') to it.substringAfter('=', "") }
+    val keys = pairs.map { it.first }
+    require(keys.count { it == "--recommend-from" } == 1 && keys.count { it == "--recommend-to" } == 1 &&
+        keys.count { it == "--recommend-limit" } <= 1 && keys.size in 2..3 &&
+        keys.all { it in setOf("--recommend-from", "--recommend-to", "--recommend-limit") }) {
+        "Provide one from date, one to date, and an optional limit"
+    }
+    val options = pairs.toMap()
+    val from = parseTmdbDate(options.getValue("--recommend-from"))
+    val to = parseTmdbDate(options.getValue("--recommend-to"))
+    validateTmdbWindow(from, to)
+    val limit = options["--recommend-limit"]?.toIntOrNull() ?: if ("--recommend-limit" in options) null else 5
+    require(limit != null && limit in 1..10) { "Recommendation limit must be between 1 and 10" }
+    val appArgs = args.filterNot { it.startsWith("--recommend-") }.toTypedArray()
+    val recommendations = try {
+        SpringApplicationBuilder(MovieTvAgentApplication::class.java).web(WebApplicationType.NONE)
+            .initializers({ context -> context.environment.propertySources.addFirst(
+                MapPropertySource("recommendationPreviewCommand", mapOf(
+                    "spring.flyway.enabled" to false,
+                    "spring.sql.init.mode" to "never",
+                    "spring.datasource.hikari.read-only" to true,
+                )),
+            ) }).run(*appArgs).use { context ->
+                require("postgres" in context.environment.activeProfiles) { "The postgres profile is required" }
+                context.getBean(RecommendationRepository::class.java).preview(from, to, limit)
+            }
+    } catch (_: Exception) {
+        throw IllegalStateException("Recommendation preview failed. Check the postgres profile and database configuration.")
+    }
+    println("This product uses the TMDB API but is not endorsed or certified by TMDB.")
+    if (recommendations.isEmpty()) {
+        println("No recommendations meet the relevance and identity requirements.")
+    } else {
+        recommendations.forEachIndexed { index, result ->
+            val item = result.candidate
+            val title = item.title.replace(Regex("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]"), " ").trim()
+            val dateLabel = if (item.media == "movie") "primary release" else "series premiere"
+            println("${index + 1}. $title - $dateLabel ${item.date}. Shares supported genres with highly rated history.")
+        }
     }
 }
 
