@@ -49,6 +49,7 @@ internal data class TmdbResults(val candidates: List<TmdbCandidate>, val morePag
 internal class TmdbDiscovery(
     token: String,
     private val client: RestClient = defaultClient(),
+    private val requestLimit: Int = Int.MAX_VALUE,
     private val pause: (Long) -> Unit = { Thread.sleep(it) },
 ) {
     init {
@@ -58,6 +59,7 @@ internal class TmdbDiscovery(
     private val readToken = token
     private val mapper = JsonMapper.builder().enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS).build()
     private val startedAt = System.nanoTime()
+    private var requestCount = 0
 
     fun discover(media: TmdbMedia, from: LocalDate, to: LocalDate): TmdbResults {
         validateTmdbWindow(from, to)
@@ -122,11 +124,43 @@ internal class TmdbDiscovery(
         return imdbId
     }
 
+    fun ratedMetadata(imdbId: String, media: TmdbMedia): RatedLookup {
+        require(imdbId.matches(Regex("tt[0-9]+"))) { "Invalid IMDb ID" }
+        val root = request("rated-title lookup") { req ->
+            req.uri { builder -> builder.path("/3/find/{id}").queryParam("external_source", "imdb_id").build(imdbId) }
+        }
+        fun results(field: String): List<JsonNode> {
+            val value = root.path(field)
+            require(value.isArray && value.size() <= 50) { "Invalid TMDB identity response" }
+            return value.toList()
+        }
+        val movies = results("movie_results")
+        val shows = results("tv_results")
+        val episodes = results("tv_episode_results")
+        val expected = if (media == TmdbMedia.MOVIE) movies else shows
+        val other = if (media == TmdbMedia.MOVIE) shows else movies
+        if (expected.isEmpty() && other.isEmpty() && episodes.isEmpty()) return RatedLookup.Unmatched
+        if (expected.size != 1 || other.isNotEmpty() || episodes.isNotEmpty()) return RatedLookup.Conflict
+        val id = positiveId(expected.single().path("id"))
+        val detail = request("rated-title details") { it.uri("/3/${media.resource}/{id}", id) }
+        require(positiveId(detail.path("id")) == id) { "Invalid TMDB details identity" }
+        val genres = optionalArray(detail, "genres").map { positiveId(it.path("id")) }.distinct()
+        val language = optionalText(detail, "original_language")?.takeIf { it.isNotEmpty() }
+        require(language == null || language.matches(Regex("[a-z]{2}"))) { "Invalid TMDB original language" }
+        val countries = optionalArray(detail, "origin_country").map {
+            require(it.isString && it.stringValue().matches(Regex("[A-Z]{2}"))) { "Invalid TMDB country" }
+            it.stringValue()
+        }.distinct()
+        return RatedLookup.Matched(id, genres, language, countries)
+    }
+
     private fun request(
         endpoint: String,
         uri: (RestClient.RequestHeadersUriSpec<*>) -> RestClient.RequestHeadersSpec<*>,
     ): JsonNode {
         for (attempt in 0..2) {
+            check(requestCount < requestLimit) { "TMDB request budget exhausted" }
+            requestCount++
             check(remainingMillis() > 0) { "TMDB preview time limit reached" }
             var retryDelay: Long? = null
             val body = try {
@@ -228,4 +262,10 @@ internal fun parseTmdbDate(value: String): LocalDate {
 
 internal fun validateTmdbWindow(from: LocalDate, to: LocalDate) {
     require(ChronoUnit.DAYS.between(from, to) in 0..30) { "Use a date window of 1 to 31 calendar days" }
+}
+
+internal sealed interface RatedLookup {
+    data object Unmatched : RatedLookup
+    data object Conflict : RatedLookup
+    data class Matched(val tmdbId: Long, val genres: List<Long>, val language: String?, val countries: List<String>) : RatedLookup
 }

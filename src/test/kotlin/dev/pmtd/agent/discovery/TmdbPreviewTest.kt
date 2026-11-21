@@ -122,6 +122,54 @@ class TmdbPreviewTest {
     }
 
     @Test
+    fun `rated movie lookup uses exact IMDb ID and validates details`() {
+        response("/3/find/tt123?external_source=imdb_id", """{"movie_results":[{"id":42}],"tv_results":[],"tv_episode_results":[]}""")
+        response("/3/movie/42", """{"id":42,"genres":[{"id":18}],"original_language":"en","origin_country":["US"]}""")
+        assertThat(discovery.ratedMetadata("tt123", TmdbMedia.MOVIE))
+            .isEqualTo(RatedLookup.Matched(42, listOf(18), "en", listOf("US")))
+        server.verify()
+    }
+
+    @Test
+    fun `rated lookup detects missing and ambiguous identities`() {
+        response("/3/find/tt124?external_source=imdb_id", """{"movie_results":[],"tv_results":[],"tv_episode_results":[]}""")
+        response("/3/find/tt125?external_source=imdb_id", """{"movie_results":[],"tv_results":[{"id":44},{"id":45}],"tv_episode_results":[]}""")
+        response("/3/find/tt126?external_source=imdb_id", """{"movie_results":[],"tv_results":[],"tv_episode_results":[{"id":44}]}""")
+        assertThat(discovery.ratedMetadata("tt124", TmdbMedia.MOVIE)).isEqualTo(RatedLookup.Unmatched)
+        assertThat(discovery.ratedMetadata("tt125", TmdbMedia.TV)).isEqualTo(RatedLookup.Conflict)
+        assertThat(discovery.ratedMetadata("tt126", TmdbMedia.TV)).isEqualTo(RatedLookup.Conflict)
+        server.verify()
+    }
+
+    @Test
+    fun `rated TV lookup retains available genre metadata`() {
+        response("/3/find/tt127?external_source=imdb_id", """{"movie_results":[],"tv_results":[{"id":43}],"tv_episode_results":[]}""")
+        response("/3/tv/43", """{"id":43,"genres":[{"id":18}],"original_language":"en","origin_country":["GB"]}""")
+        assertThat(discovery.ratedMetadata("tt127", TmdbMedia.TV))
+            .isEqualTo(RatedLookup.Matched(43, listOf(18), "en", listOf("GB")))
+        server.verify()
+    }
+
+    @Test
+    fun `rated lookup enforces total HTTP request budget even on retry`() {
+        val limited = TmdbDiscovery("synthetic-token", builder.build(), requestLimit = 1) { }
+        server.expect(requestTo(BASE + "/3/find/tt128?external_source=imdb_id"))
+            .andRespond(withStatus(HttpStatus.TOO_MANY_REQUESTS))
+        assertThatThrownBy { limited.ratedMetadata("tt128", TmdbMedia.TV) }
+            .hasMessageContaining("request budget exhausted").hasMessageNotContaining("tt128")
+        server.verify()
+    }
+
+    @Test
+    fun `rated lookup sanitizes HTTP failure and keeps title ID private`() {
+        server.expect(requestTo(BASE + "/3/find/tt987654?external_source=imdb_id"))
+            .andRespond(withStatus(HttpStatus.UNAUTHORIZED))
+        assertThatThrownBy { discovery.ratedMetadata("tt987654", TmdbMedia.TV) }
+            .hasMessageNotContaining("tt987654").hasMessageNotContaining("synthetic-token")
+        server.verify()
+    }
+
+    @Test
     fun `rejects overlong or reversed windows before requests`() {
         assertThatThrownBy { discovery.discover(TmdbMedia.TV, from, to.plusDays(2)) }
             .hasMessageContaining("31 calendar days")

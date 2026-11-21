@@ -10,6 +10,7 @@ import org.springframework.core.env.MapPropertySource
 import dev.pmtd.agent.catalog.CatalogRepository
 import dev.pmtd.agent.discovery.TmdbDiscovery
 import dev.pmtd.agent.discovery.TmdbPreview
+import dev.pmtd.agent.discovery.RatedTitleEnrichment
 import dev.pmtd.agent.discovery.TmdbImport
 import dev.pmtd.agent.discovery.TmdbMedia
 import dev.pmtd.agent.discovery.fetchTmdbBatch
@@ -26,6 +27,10 @@ import java.nio.file.Path
 class MovieTvAgentApplication
 
 fun main(args: Array<String>) {
+    if (args.any { it.startsWith("--tmdb-enrich-") }) {
+        runTmdbEnrichment(args)
+        return
+    }
     if (args.any { it.startsWith("--tmdb-import-") }) {
         runTmdbImport(args)
         return
@@ -111,6 +116,40 @@ fun main(args: Array<String>) {
     } finally {
         context.close()
     }
+}
+
+private fun runTmdbEnrichment(args: Array<String>) {
+    val commands = args.filter { it.startsWith("--tmdb-enrich-") }
+    require(args.none { it == "--imdb-stats" || it.startsWith("--import-imdb=") ||
+        it.startsWith("--tvmaze-") || it.startsWith("--tmdb-import-") || it.startsWith("--tmdb-preview-") }) { "Use only one command" }
+    val limits = commands.filter { it.startsWith("--tmdb-enrich-limit=") }
+    require(limits.size == 1 && commands.count { it == "--tmdb-enrich-retry" } <= 1 &&
+        commands.size == limits.size + commands.count { it == "--tmdb-enrich-retry" }) { "Provide one enrichment limit and optional retry flag" }
+    val limit = limits.single().substringAfter('=').toIntOrNull()
+    require(limit != null && limit in 1..20) { "Limit must be between 1 and 20" }
+    val retry = "--tmdb-enrich-retry" in commands
+    val appArgs = args.filterNot { it.startsWith("--tmdb-enrich-") }.toTypedArray()
+    SpringApplicationBuilder(MovieTvAgentApplication::class.java).web(WebApplicationType.NONE)
+        .initializers({ context -> context.environment.propertySources.addFirst(
+            MapPropertySource("tmdbEnrichmentCommand", mapOf("spring.flyway.enabled" to false, "spring.sql.init.mode" to "never"))
+        ) }).run(*appArgs).use { context ->
+            require("postgres" in context.environment.activeProfiles) { "The postgres profile is required" }
+            val token = context.environment.getProperty("PMTD_TMDB_READ_TOKEN")
+            require(!token.isNullOrBlank()) { "Set PMTD_TMDB_READ_TOKEN locally" }
+            val service = context.getBean(RatedTitleEnrichment::class.java)
+            val client = TmdbDiscovery(token, requestLimit = 40)
+            val counts = mutableMapOf<String, Int>()
+            try {
+                for (item in service.pending(limit, retry)) {
+                    val outcome = service.record(item, client.ratedMetadata(item.imdbId, item.media), retry)
+                    counts[outcome] = (counts[outcome] ?: 0) + 1
+                }
+            } catch (_: Exception) {
+                throw IllegalStateException("Enrichment stopped. Check TMDB access, request limits and database configuration. Previously completed titles remain saved.")
+            }
+            println("This product uses the TMDB API but is not endorsed or certified by TMDB.")
+            println("Matched: ${counts["matched"] ?: 0}, unmatched: ${counts["unmatched"] ?: 0}, conflicts: ${counts["conflict"] ?: 0}, skipped: ${counts["skipped"] ?: 0}")
+        }
 }
 
 private fun runTmdbImport(args: Array<String>) {

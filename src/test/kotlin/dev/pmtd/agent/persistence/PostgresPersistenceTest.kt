@@ -1,6 +1,9 @@
 package dev.pmtd.agent.persistence
 
 import dev.pmtd.agent.MovieTvAgentApplication
+import dev.pmtd.agent.discovery.RatedTitle
+import dev.pmtd.agent.discovery.RatedLookup
+import dev.pmtd.agent.discovery.RatedTitleEnrichment
 import dev.pmtd.agent.discovery.TmdbBatch
 import dev.pmtd.agent.discovery.TmdbCandidate
 import dev.pmtd.agent.discovery.TmdbImport
@@ -118,15 +121,15 @@ class PostgresPersistenceTest {
     fun `migration is confined to target schema and is not repeated`() {
         assertThat(jdbc.sql("SELECT current_schema()").query(String::class.java).single()).isEqualTo(schema)
         val flyway = context.getBean(Flyway::class.java)
-        assertThat(flyway.info().applied()).hasSize(3)
-        assertThat(flyway.info().current().version.version).isEqualTo("3")
+        assertThat(flyway.info().applied()).hasSize(4)
+        assertThat(flyway.info().current().version.version).isEqualTo("4")
         assertThat(flyway.migrate().migrationsExecuted).isZero()
         flyway.validate()
         val tables = jdbc.sql("SELECT tablename FROM pg_tables WHERE schemaname = :schema")
             .param("schema", schema).query(String::class.java).list()
         assertThat(tables).containsExactlyInAnyOrder(
             "flyway_schema_history", "catalog_title", "title_external_id", "imdb_import_batch", "imported_rating",
-            "tvmaze_schedule_episode", "tvmaze_schedule_checkpoint", "tmdb_candidate", "tmdb_discovery_run",
+            "tvmaze_schedule_episode", "tvmaze_schedule_checkpoint", "tmdb_candidate", "tmdb_discovery_run", "rated_title_tmdb_metadata", "rated_title_enrichment_attempt",
         )
     }
 
@@ -252,7 +255,7 @@ class PostgresPersistenceTest {
         context.close()
         context = startContext()
         assertThat(catalog.findById(title.id)).isEqualTo(title)
-        assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(3)
+        assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(4)
     }
 
     @Test
@@ -491,6 +494,72 @@ class PostgresPersistenceTest {
         }
         assertThat(jdbc.sql("SELECT count(*) FROM tmdb_candidate WHERE media_type='movie' AND tmdb_id=555003").query(Long::class.java).single()).isEqualTo(1)
         assertThat(jdbc.sql("SELECT count(*) FROM tmdb_discovery_run WHERE requested_from=:day").param("day", day).query(Long::class.java).single()).isEqualTo(2)
+    }
+
+    @Test
+    fun `rated title enrichment records safe matches and skips duplicates`() {
+        val service = context.getBean(RatedTitleEnrichment::class.java)
+        val title = title().copy(kind = TitleKind.MOVIE)
+        val id = imdbId()
+        catalog.save(title)
+        catalog.attachExternalId(title.id, ExternalTitleId(ExternalIdNamespace.IMDB_TITLE, id), "fixture", now)
+        val batch = batch()
+        history.tryCreateBatch(batch)
+        history.saveRating(RatingWrite(id, 7, null, batch.id, 2, now))
+        val item = RatedTitle(title.id, id, TmdbMedia.MOVIE)
+        val match = RatedLookup.Matched(811234, listOf(18), "en", listOf("US"))
+        assertThat(service.record(item, match, false)).isEqualTo("matched")
+        assertThat(service.record(item, match, false)).isEqualTo("skipped")
+        assertThat(jdbc.sql("SELECT count(*) FROM rated_title_tmdb_metadata WHERE catalog_title_id=:id").param("id", title.id)
+            .query(Long::class.java).single()).isEqualTo(1)
+        assertThat(service.pending(20, false).map { it.titleId }).doesNotContain(title.id)
+    }
+
+    @Test
+    fun `rated title enrichment treats claimed TMDB ID as conflict and permits explicit retry`() {
+        val service = context.getBean(RatedTitleEnrichment::class.java)
+        val first = title().copy(kind = TitleKind.MOVIE)
+        val second = title().copy(kind = TitleKind.MOVIE)
+        val id1 = imdbId()
+        val id2 = imdbId()
+        for ((t, id) in listOf(first to id1, second to id2)) {
+            catalog.save(t)
+            catalog.attachExternalId(t.id, ExternalTitleId(ExternalIdNamespace.IMDB_TITLE, id), "fixture", now)
+        }
+        val item1 = RatedTitle(first.id, id1, TmdbMedia.MOVIE)
+        val item2 = RatedTitle(second.id, id2, TmdbMedia.MOVIE)
+        val match = RatedLookup.Matched(811235, emptyList(), null, emptyList())
+        assertThat(service.record(item1, match, false)).isEqualTo("matched")
+        assertThat(service.record(item2, match, false)).isEqualTo("conflict")
+        assertThat(service.record(item2, RatedLookup.Matched(811236, emptyList(), null, emptyList()), true)).isEqualTo("matched")
+    }
+
+    @Test
+    fun `concurrent rated enrichment converges and transaction rollback leaves no metadata`() {
+        val service = context.getBean(RatedTitleEnrichment::class.java)
+        val title = title().copy(kind = TitleKind.SERIES)
+        val id = imdbId()
+        catalog.save(title)
+        catalog.attachExternalId(title.id, ExternalTitleId(ExternalIdNamespace.IMDB_TITLE, id), "fixture", now)
+        val item = RatedTitle(title.id, id, TmdbMedia.TV)
+        val match = RatedLookup.Matched(811237, emptyList(), null, emptyList())
+        assertThatThrownBy { transactions.executeWithoutResult {
+            service.record(item, match, false)
+            throw IllegalStateException("synthetic rollback")
+        } }.isInstanceOf(IllegalStateException::class.java)
+        assertThat(jdbc.sql("SELECT count(*) FROM rated_title_enrichment_attempt WHERE catalog_title_id=:id")
+            .param("id", title.id).query(Long::class.java).single()).isZero()
+        val start = CountDownLatch(1)
+        Executors.newFixedThreadPool(2).use { pool ->
+            val jobs = (1..2).map { pool.submit<String> {
+                check(start.await(5, TimeUnit.SECONDS))
+                service.record(item, match, false)
+            } }
+            start.countDown()
+            assertThat(jobs.map { it.get(15, TimeUnit.SECONDS) }).containsExactlyInAnyOrder("matched", "skipped")
+        }
+        assertThat(jdbc.sql("SELECT count(*) FROM rated_title_tmdb_metadata WHERE catalog_title_id=:id")
+            .param("id", title.id).query(Long::class.java).single()).isEqualTo(1)
     }
 
     private fun fixtureCsv(contents: String): Path = fixtureDirectory.resolve("${UUID.randomUUID()}.csv")

@@ -17,7 +17,10 @@ passed its approved live check against a disposable catalog.
 
 P1C-03 is complete. The user approved applying V3 to the application database
 on 2026-11-21. [Flyway and schema verification](tmdb-persistence-proposal.md#verification)
-passed and both TMDB tables are empty. The first application catalog import is
-still pending.
+passed. The user reported completing the laptop preview and import steps successfully; output counts were not supplied.
+
+| ID | Task / scope | Status | Gate | Request / decision / evidence | Last reviewed |
+| --- | --- | --- | --- | --- | --- |
+| P1C-05 | Prepare metadata for personalized ranking | In progress | Application migration and real-history authorization | G2 and G3 approved. Implementation passed 45 offline and 23 tester-led disposable PostgreSQL tests. [Verification](rated-title-enrichment-proposal.md#verification). | 2026-11-21 |
 
 See the [index](README.md#completed) for completed work.

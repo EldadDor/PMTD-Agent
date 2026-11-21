@@ -122,6 +122,22 @@ Truncated runs leave results unread. The command disables Flyway and stores
 source observations, not recommendations. Other PostgreSQL profile startups
 normally run Flyway and would apply any pending migration.
 
+## Rated-title metadata enrichment
+
+After V4 is authorized and applied to the intended PostgreSQL target, this
+manual command processes at most 20 eligible rated titles per invocation:
+
+```powershell
+java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=postgres,local' --tmdb-enrich-limit=20
+```
+
+Each lookup shares an IMDb title ID with TMDB, which can reveal part of your
+viewing history. Explicitly authorize the real-history run before executing it.
+The command does not send rating values, and prints aggregate outcomes only.
+Add `--tmdb-enrich-retry` to revisit unmatched and conflict attempts. It disables
+Flyway for this command and stops at 40 HTTP attempts, including retries. If a
+request fails, earlier completed titles remain saved.
+
 ## PostgreSQL setup
 
 The laptop hosts `pmtd_agent` with schema `pmtd` and a dedicated `pmtd_app` login.

@@ -5,11 +5,19 @@ update **Current rollout** with the changes, prerequisites, database or
 configuration actions, verification and any rollback details. Keep the reusable
 commands below current. The operator performs the steps on the laptop.
 
+## Pending rollout — rated-title metadata
+
+V4 and the enrichment command are implemented but await database validation and
+separate approval for migration execution. A normal application startup with
+the `postgres` profile applies pending Flyway migrations. The enrichment command
+disables Flyway. The first real-history lookup also needs explicit approval because
+it sends IMDb title IDs to TMDB. See the [enrichment design](rated-title-enrichment-proposal.md).
+
 ## Next rollout — TMDB persistence
 
 Flyway applied the approved V3 migration to `pmtd_agent.pmtd` on 2026-11-21.
 Both TMDB tables and the catalog index are verified. The new TMDB tables are
-empty and the first application catalog import is pending. The import command
+were initially empty. The user reported completing the laptop preview and import test steps; counts were not supplied. The import command
 disables Flyway. The laptop rollout remains manual. The user authorized publishing the implementation on 2026-11-21. See the [TMDB import instructions](../README.md#tmdb-candidate-import)
 and [verification](tmdb-persistence-proposal.md#verification).
 
