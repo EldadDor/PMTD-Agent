@@ -7,6 +7,11 @@ import org.springframework.boot.builder.SpringApplicationBuilder
 import dev.pmtd.agent.imdb.ImdbImportService
 import dev.pmtd.agent.imdb.ImdbHistoryRepository
 import org.springframework.core.env.MapPropertySource
+import dev.pmtd.agent.catalog.CatalogRepository
+import dev.pmtd.agent.discovery.TmdbDiscovery
+import dev.pmtd.agent.discovery.TmdbPreview
+import dev.pmtd.agent.discovery.parseTmdbDate
+import dev.pmtd.agent.discovery.validateTmdbWindow
 import dev.pmtd.agent.discovery.runTvmaze
 import dev.pmtd.agent.discovery.TvmazeDiscovery
 import dev.pmtd.agent.discovery.TvmazeScheduleImport
@@ -17,6 +22,10 @@ import java.nio.file.Path
 class MovieTvAgentApplication
 
 fun main(args: Array<String>) {
+    if (args.any { it.startsWith("--tmdb-preview-") }) {
+        runTmdbPreview(args)
+        return
+    }
     if (args.any { it == "--imdb-stats" }) {
         require(args.count { it == "--imdb-stats" } == 1 &&
             args.none { it.startsWith("--import-imdb=") || it.startsWith("--tvmaze-") }) {
@@ -94,6 +103,39 @@ fun main(args: Array<String>) {
     } finally {
         context.close()
     }
+}
+
+private fun runTmdbPreview(args: Array<String>) {
+    require(args.none { it == "--imdb-stats" || it.startsWith("--import-imdb=") || it.startsWith("--tvmaze-") }) {
+        "Use only one command"
+    }
+    val previewArgs = args.filter { it.startsWith("--tmdb-preview-") }
+    val keys = previewArgs.map { it.substringBefore('=') }
+    require(keys.size == 2 && keys.toSet() == setOf("--tmdb-preview-from", "--tmdb-preview-to")) {
+        "Provide --tmdb-preview-from and --tmdb-preview-to exactly once"
+    }
+    val values = previewArgs.associate { it.substringBefore('=') to it.substringAfter('=', "") }
+    val from = parseTmdbDate(values.getValue("--tmdb-preview-from"))
+    val to = parseTmdbDate(values.getValue("--tmdb-preview-to"))
+    validateTmdbWindow(from, to)
+
+    val appArgs = args.filterNot { it.startsWith("--tmdb-preview-") }.toTypedArray()
+    SpringApplicationBuilder(MovieTvAgentApplication::class.java)
+        .web(WebApplicationType.NONE)
+        .initializers({ context ->
+            context.environment.propertySources.addFirst(
+                MapPropertySource("tmdbPreviewCommand", mapOf(
+                    "spring.flyway.enabled" to false,
+                    "spring.sql.init.mode" to "never",
+                    "spring.datasource.hikari.read-only" to true,
+                )),
+            )
+        }).run(*appArgs).use { context ->
+            require("postgres" in context.environment.activeProfiles) { "The postgres profile is required" }
+            val token = context.environment.getProperty("PMTD_TMDB_READ_TOKEN")
+            require(!token.isNullOrBlank()) { "Set PMTD_TMDB_READ_TOKEN locally before running the preview" }
+            println(TmdbPreview(TmdbDiscovery(token), context.getBean(CatalogRepository::class.java)).render(from, to))
+        }
 }
 
 internal fun formatRatingDistribution(counts: Map<Int, Long>): String =

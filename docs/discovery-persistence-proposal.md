@@ -1,17 +1,17 @@
 # Phase 1C discovery persistence proposal
 
-Last reviewed: 2026-11-20 (Asia/Jerusalem)
+Last reviewed: 2026-11-21 (Asia/Jerusalem)
 
 **P1C-01 — G2 approved by the user.** This proposes the first manual TVmaze persistence
 slice. G0 approved the Phase 1C sequence and G1 authorized design. G2 authorizes this schema, migration creation, and command interface. Production
-database migration execution requires separate authorization.
+database migration execution was separately approved and performed on `pmtd_agent.pmtd` on 2026-11-21.
 
 ## Scope and identity
 
 A manual command accepts an explicit ISO country and date. It requests the
 complete TVmaze country schedule, validates the entire response and stores
-source observations. The user's region remains undecided, so there is no default
-region. This endpoint includes country-tied airings and omits global web
+source observations. The country is a TVmaze query parameter. The user now
+prioritizes original language and show origin over a fixed release region. This endpoint includes country-tied airings and omits global web
 channels. An episode airing is not proof of streaming availability.
 
 Store source episode and show IDs as supplied. For this slice, source records
@@ -78,7 +78,9 @@ No scheduler or TMDB API is introduced in this slice.
   cover initial and repeated imports, multiple countries, changed dates,
   rollback/checkpoint atomicity, and concurrency. Check packaged command and
   existing dry run. A fresh disposable schema and a production migration target
-  require separate, explicit execution authorization.
+  require separate, explicit execution authorization. V2 execution on the
+  production `pmtd_agent.pmtd` target was subsequently approved and verified
+  on 2026-11-21.
 
 Alternative: write directly to `catalog_title` and merge by a shared identifier.
 That would require reliable external identity evidence and conflict handling not
@@ -100,5 +102,5 @@ separate designs or approvals as applicable.
 - [TMDB FAQ](https://developer.themoviedb.org/docs/faq): noncommercial access
   requires attribution. [Authentication](https://developer.themoviedb.org/docs/authentication-application)
   uses an API key or bearer token. [Rate guidance](https://developer.themoviedb.org/docs/rate-limiting)
-  asks clients to respect 429 responses. Account access and actual release
-  region have not been verified. No credentials were accessed or requested.
+  asks clients to respect 429 responses. The user registered for TMDB. The
+  [preview design](tmdb-discovery-proposal.md) tracks integration and verification.

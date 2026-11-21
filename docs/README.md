@@ -1,12 +1,16 @@
 # Project index
 
-Review before each task and update after it. Last reviewed: 2026-11-20 (Asia/Jerusalem).
+Review before each task and update after it. Last reviewed: 2026-11-21 (Asia/Jerusalem).
 
-- **Current:** [Phase 1C — Discovery and polling](work_current_phase.md). P1C-01 TVmaze persistence is in progress; 33 offline and 17 disposable PostgreSQL tests passed; packaged public sample repeat verified.
+- **Current:** [Phase 1C — Discovery and polling](work_current_phase.md). TVmaze persistence and the TMDB preview are verified. The next gap is persisted TMDB discovery and trusted catalog links. Schedule times follow a manual full run.
 - **Next:** [1D Ranking and AI](next_phase.md) · [Later phases](proposed_next_phases.md). G0 approved the Phase 1C sequence and roadmap arrangement.
-- **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [Discovery design](discovery-persistence-proposal.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md)
+- **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [Discovery design](discovery-persistence-proposal.md) · [TMDB preview](tmdb-discovery-proposal.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md)
 
 ## Completed
+
+- **P1C-02:** Read-only TMDB preview verified against the live API and disposable catalog. 39 offline tests passed. [Validation evidence](tmdb-discovery-proposal.md#verification)
+
+- **P1C-01:** G2 approved. 33 offline and 17 disposable PostgreSQL tests passed. Packaged public sample import was repeatable. User approved V2 on `pmtd_agent.pmtd`; Flyway history and both tables verified on 2026-11-21. No production discovery import performed. Implementation `29367dc`.
 
 - **Phases 0, 1A and 1B:** G4 approved on 2026-11-20. The archived ledger records outcomes and carry-over.
 - **P1B-01:** Reviewed import acceptance using P0-09/P0-10 evidence. Distribution went to P1B-02. Genre statistics await stored metadata.

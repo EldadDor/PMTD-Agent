@@ -8,17 +8,20 @@ commands below current. The operator performs the steps on the laptop.
 ## Current rollout
 
 - **Phase 1C — TVmaze manual schedule import:** V2 adds observation and
-  checkpoint tables. G2 approved migration creation. The PostgreSQL target and
-  production migration execution require separate authorization before this command can run.
-  V1 and V2 passed 17 synthetic PostgreSQL tests in a disposable test schema.
+  checkpoint tables. The user approved V2 on `pmtd_agent.pmtd` and Flyway
+  applied it on 2026-11-21. Both tables and the migration history were verified.
+  V1 and V2 also passed 17 synthetic PostgreSQL tests in a disposable test schema.
   The packaged US sample import ran twice against that schema, observing 74
   episodes each time without increasing the total on the second run.
 - The default container health check uses no database. The new import command
   disables automatic migration. Other application starts with the `postgres`
   profile normally enable Flyway and would apply V2. See the [README](../README.md#tvmaze-schedule-import)
   for its command and [design](discovery-persistence-proposal.md) for scope.
-- The laptop rollout remains manual. This handoff will be updated with the
-  validated migration steps and the commit when they are authorized and ready.
+- The laptop rollout remains manual. The initial release and verification
+  commits are `29367dc` and `b61ec1f`; check that they are available in the
+  remote before pulling. A production schedule import has not been run, and
+  the user prioritizes language and show origin. Supply a country to query a
+  TVmaze schedule when running an import.
 
 ## First-time laptop setup
 

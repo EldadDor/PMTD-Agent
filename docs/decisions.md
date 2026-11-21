@@ -1,6 +1,6 @@
 # Decisions
 
-Last reviewed: 2026-11-20 (Asia/Jerusalem)
+Last reviewed: 2026-11-21 (Asia/Jerusalem)
 
 ## Approved scope
 
@@ -35,13 +35,15 @@ pushes or merges, or constitute milestone acceptance or phase closure. The
 | --- | --- | --- | --- |
 | D01 | Versions | Approved: Boot 4.1.2, Kotlin 2.3.21, Gradle 9.2.1, Java 25, and Spring AI 2.0.2 | AI foundation validation is recorded in [implementation history](archive/implementation-status.md). See P0-11 for laptop inference. |
 | D02 | Database | Laptop PostgreSQL 16.14 at `10.100.102.12:5432`. User approved provisioning and use on 2026-11-19. `pmtd_agent` holds app data, `pmtd_agent_test` holds integration fixtures, and both use the dedicated `pmtd_app` login. | The server lacks TLS, so the desktop connection uses `sslmode=disable`. V1 applied in `pmtd_agent.pmtd`. See [implementation history](archive/implementation-status.md) for test evidence. |
-| D03 | Messaging | User confirmed PMTD-Agent Messaging API activation and chose ngrok for desktop webhook testing on 2026-11-19. Channel settings are in ignored local YAML. | Signed webhook handler and ngrok tunnel pending. The user will set the HTTPS URL in the LINE console. Outbound token and quota remain pending. |
+| D03 | Messaging | User confirmed PMTD-Agent Messaging API activation and chose ngrok for desktop webhook testing on 2026-11-19. Channel settings are in ignored local YAML. | First confirm receipt of one personal push. Outbound token, recipient ID and quota remain pending. Set up the signed webhook and ngrok after delivery succeeds. |
 | D04 | Ollama | On 2026-11-20 the user chose the existing laptop Ollama server for a Spark-X2.6-4B trial. Installed tag: `SparkLLM/Spark-X2.6-4B:latest` (BF16 GGUF, digest prefix `44ca4d700630`). Keep model pulls disabled. | P0-11 passed native Ollama and Spring AI chat with synthetic input. Final selection and the comparison in P1D-02 remain pending. |
-| D05 | Schedule | Deferred by user; manual-only POC path | Frequency/timezone/caps/quiet hours/resend policy later; no scheduler added |
-| D06 | Feedback | Deferred by user, including sequence of buttons/ratings/free text | Retained in MVP scope; implementation waits for later decision |
+| D05 | Schedule | Decide schedule times after a manual full run | Frequency, time zone, quiet hours and unattended resend policy remain open |
+| D06 | Feedback | Start feedback tasks after the first personalized LINE push is received | The signed webhook and feedback remain in MVP scope |
 | D07 | Hosting | Approved current target: this Windows desktop, Kotlin app run from IntelliJ; Codex may run Gradle tests. Laptop supplies PostgreSQL | Other laptop services after POC. Existing Kind + ArgoCD and Hostinger VPS are context only; VPS deployment is not currently considered. No container/K8s/ArgoCD/VPS configuration authorized |
 | D08 | TVmaze and watched history | User chose the free TVmaze account and public API for discovery on 2026-11-20. Keep watched status in local PostgreSQL. | TVmaze account sync is out of scope for now. General watched status storage still needs a schema design and approval. |
 | D09 | Docker operation | User will clone the repository and run all Docker commands manually on the laptop with Docker Desktop. Compose is available when needed. | The user reported `UP` for the initial smoke check. Use the [deployment handoff](laptop-deployment-handoff.md) for later rollouts. |
+| D10 | Discovery and personalization | Original language matters more than release region. Prioritize original English and shows from the US, UK and Australia. Recommendations must use local rating history and relevant title evidence. | Keep origin, language and market separate. Build deterministic ranking with a relevance threshold and an empty result when nothing qualifies. |
+| D11 | TMDB access | The user registered for TMDB and approved one live preview with the supplied read token. The check passed on 2026-11-21. | The user plans to rotate the token. Configure the replacement locally for later runs. |
 
 The approved selections above supersede earlier recommendations. The dedicated
 PMTD role and databases were provisioned with the supplied PostgreSQL login.

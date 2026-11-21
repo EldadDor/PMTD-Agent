@@ -1,9 +1,10 @@
 # Personal Movie & TV Discovery Agent
 
 A local-first movie and TV discovery project. The initial foundation contains a
-Kotlin/Spring Boot application and a loopback health endpoint. IMDb import,
-discovery, ranking and messaging are not implemented yet. PostgreSQL JDBC
-repositories and a V1 migration are available through the opt-in `postgres` profile.
+Kotlin/Spring Boot application and a loopback health endpoint. Manual IMDb
+import, TVmaze discovery and a TMDB preview are available. Personalized ranking
+and messaging are planned. PostgreSQL JDBC is available through the opt-in
+`postgres` profile.
 The Spring AI 2.0.2 Ollama starter is present. The default application disables
 chat, embeddings and model pulling. Spark-X2.6-4B is the first laptop Ollama trial.
 
@@ -84,6 +85,28 @@ java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=pos
 The command disables automatic Flyway migration. It stores TVmaze observations
 separately from IMDb titles and does not infer streaming availability. TV data
 is supplied by TVmaze under CC BY-SA.
+
+## TMDB discovery preview
+
+Set `PMTD_TMDB_READ_TOKEN` in the process environment or in the ignored
+`application-local.yml`. Use the TMDB read access token. Run from the repository
+root with your local PostgreSQL settings and an inclusive date window of up to
+31 days.
+
+```powershell
+java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=postgres,local' --tmdb-preview-from=2026-11-01 --tmdb-preview-to=2026-11-21
+```
+
+The preview queries original English movies and shows. It shows movie release
+dates and series premiere dates, available metadata, and exact IMDb match status
+for up to ten candidates per media type. It reads the local catalog, disables
+Flyway, and leaves catalog links untouched.
+
+### Credits
+
+[<img src="https://www.themoviedb.org/assets/2/v4/logos/v2/blue_long_2-9665a76b1ae401a510ec1e0ca40ddcb3b0cfe45f1d51b77a308fea0845885648.svg" alt="TMDB" width="105">](https://www.themoviedb.org/)
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 ## PostgreSQL setup
 

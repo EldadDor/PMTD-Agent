@@ -1,6 +1,6 @@
 # LINE API setup for PMTD-Agent
 
-Last reviewed: 2026-11-19 (Asia/Jerusalem)
+Last reviewed: 2026-11-21 (Asia/Jerusalem)
 Status: The user confirmed Messaging API activation for PMTD-Agent and supplied
 the channel settings. They are stored in the ignored `application-local.yml` for
 future use. The webhook handler, channel quota and outbound access token are pending.
@@ -34,10 +34,12 @@ See [LINE getting started](https://developers.line.biz/en/docs/messaging-api/get
 4. When implementation is ready, prepare the channel secret and an access token
    using LINE's supported token flow. Keep both in local ignored configuration or
    process environment. Token lifetime/renewal must be chosen before operation.
-5. Add PMTD-Agent as a friend using its channel QR code. Later bind the intended
-   personal recipient ID through the controlled setup/verified event flow, and
-   configure an allowlist. Never infer a recipient ID from a public account page.
-6. Later configure and verify the bot webhook, then enable it. Review automatic
+5. Add PMTD-Agent as a friend using its channel QR code. For the first push,
+   use **Your user ID** in the channel's **Basic settings** with your LINE
+   account linked to your Business ID. Store it locally as the sole recipient.
+   [LINE user IDs](https://developers.line.biz/en/docs/messaging-api/getting-user-ids/)
+6. After receipt of the first personalized push is confirmed, configure and
+   verify the bot webhook, then enable it. Review automatic
    greetings/replies to avoid duplicate bot responses. Do not change these now
    merely to run the foundation tests.
 
@@ -65,6 +67,7 @@ waits for the user's deferred feedback decision.
 Implement monthly-cap checks, bounded sends and provider-supported retry handling
 after schedule/resend decisions. Retain delivery uncertainty across crashes; a
 locally unique delivery key alone cannot prove a remote send happened once.
-No real message, credentialed API call, public endpoint or account change has
-been made. The next messaging checkpoint is implementing the signed webhook and
-confirming the message quota before planning outbound sends.
+The next messaging checkpoint is one manually triggered personalized push to
+the allowlisted recipient. Confirm the quota and obtain approval for the real
+send, then have the recipient confirm receipt. Schedule the signed webhook
+and feedback work after that confirmation.

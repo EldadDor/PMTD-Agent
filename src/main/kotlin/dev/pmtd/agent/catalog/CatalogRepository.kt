@@ -45,6 +45,11 @@ class CatalogRepository(private val jdbc: JdbcClient) {
     ).param("namespace", externalId.namespace.databaseValue).param("externalId", externalId.value)
         .query { row, _ -> mapTitle(row) }.optional().orElse(null)
 
+    fun findExternalId(titleId: UUID, namespace: ExternalIdNamespace): String? = jdbc.sql(
+        "SELECT external_id FROM title_external_id WHERE title_id = :id AND namespace = :namespace",
+    ).param("id", titleId).param("namespace", namespace.databaseValue)
+        .query(String::class.java).optional().orElse(null)
+
     /** A known source ID can refresh its observation, but cannot move to another title. */
     fun attachExternalId(titleId: UUID, externalId: ExternalTitleId, observedFrom: String, observedAt: Instant) {
         require(observedFrom.isNotBlank()) { "Observation provenance must not be blank" }
