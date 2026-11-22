@@ -104,12 +104,110 @@ preview against the synthetic fixture returned the expected recommendation with
 unchanged Flyway history. An ASCII separator corrected a captured PowerShell
 display issue; the tester reran all 52 offline tests and the packaged synthetic
 preview successfully, with Flyway history still unchanged. The PostgreSQL suite
-was not rerun after this output-only change. No real-history recommendation
-preview has been run.
+was not rerun after this output-only change.
 
 On 2026-11-22, the user approved G3 commit and push. Implementation `f76ae3c`
 contains the CLI, recommendation repository and scorer, their tests, and the
 README usage instructions. `git diff --cached --check` passed for the delivery
-changes. The delivery used the recorded tester results. The proposed one-time
-real-history preview on `pmtd_agent.pmtd` for 2026-11-01 through 2026-11-21
-still awaits separate authorization.
+changes. After the user confirmed the destination, `f76ae3c` and `bb93b80` were
+pushed to `origin/master`. `git ls-remote` verified `bb93b80` as the branch tip.
+
+The user separately approved one read-only run on `pmtd_agent.pmtd` on
+2026-11-22. The packaged JAR exited successfully with five recommendations
+using `--recommend-from=2026-11-01 --recommend-to=2026-11-21 --recommend-limit=5`.
+The CLI used a read-only transaction with Flyway disabled. The titles are
+stored in the ignored `private/` directory for the user's review. The existing
+tester results were used for delivery and the suites were not rerun for this
+preview.
+
+### User review of the first preview
+
+On 2026-11-22 the user found all five results unsuitable. They emphasized a
+limited viewing queue, normally wanting ratings of at least 6.5 and considering
+vote counts, with more than 1,000 votes as a useful signal. Low ratings with few
+votes are a negative signal. Subject matter and the kind of reality or documentary
+content also matter. These observations do not establish a blanket rejection of
+any genre, provider, or title with fewer than 1,000 votes. The current candidate
+schema and ranking do not store or use candidate audience ratings or vote counts.
+The source, availability, handling of missing ratings and exact ranking rules need
+design before implementation.
+
+### Proposed audience rating and review lookup
+
+Use IMDb's daily `title.ratings.tsv.gz` snapshot for individual personal use.
+Match the title's verified IMDb ID exactly and keep the weighted rating, vote
+count, and snapshot date together. A manual import from a local copy can
+validate the approach before choosing a refresh schedule. Keep the data local
+and include IMDb's required attribution when displaying it. The licensed API
+is a separate offering. IMDb's free file contains aggregate ratings and votes,
+and its non-commercial terms prohibit scraping the website for reviews.
+[Dataset](https://data.imdb.com/non-commercial-datasets/) ·
+[IMDb terms](https://help.imdb.com/article/imdb/general-information/can-i-use-imdb-data-in-my-software/G5JTRESSHJBBHTGX).
+
+Use IMDb whenever a current snapshot contains a rating. Treat 6.5 as the
+proposed default minimum for the shortlist. A score below 6.5 with few votes
+stays off the shortlist and can be reconsidered as votes accrue. A score at or
+above 6.5 with sparse votes is provisional. Around 1,000 votes strengthens
+confidence without acting as a hard gate. Require a strong subject and format
+match, and allow an empty shortlist. If IMDb has no rating, a labeled TMDB
+score with its own vote count can inform manual review. A TVmaze score without
+a visible count can provide context. Keep scores from different audiences
+distinct. Use the series score for series-level discovery.
+
+For a promising title with sparse or missing votes, check its synopsis and
+format and surface links to available reviews for manual consideration. TMDB
+has a documented series reviews endpoint. Published critic reviews can supply
+context when available. Keep that evidence separate from audience ratings and
+leave the title pending if the evidence is too thin. Use review contents only
+where permitted. A future local LLM can explain subject fit from supplied
+evidence with source links. The rating and vote rules remain deterministic.
+[TMDB series reviews](https://developer.themoviedb.org/reference/tv-series-reviews).
+
+OMDb is an alternative to evaluate if a per-title lookup is needed. It offers a
+free keyed tier with 1,000 requests per day. Its freshness and coverage for new
+releases have not been verified here. [OMDb lookup](https://www.omdbapi.com/) ·
+[OMDb keys](https://www.omdbapi.com/apikey.aspx).
+
+Validate with fixtures for exact identity, low scores with sparse votes, strong
+scores with sparse votes, credible scores with substantial votes, stale or
+missing evidence, and genuinely empty shortlists. A later approved sample of
+recent titles can measure coverage and delays. This review checked published
+documentation. It did not download a snapshot or call a ratings API.
+
+### P1D-02 implementation
+
+The user approved the plan on 2026-11-22. The preview reads a dated local TSV
+or gzip file and streams past rows unrelated to the eligible IMDb IDs. It
+checks audience evidence before applying the output limit. The initial
+defaults treat a snapshot older than two UTC days as stale and fewer than 100
+votes as provisional. A fresh score below 6.5 excludes a title even when its
+vote count is low. At or above 6.5, the shortlist prioritizes candidates with
+at least 1,000 votes, then uses the existing deterministic rank within each
+vote band. Reality TV and documentaries go to manual review.
+
+The preview links to the synopsis for title-level screening and links manual
+review candidates to their TMDB review page. An optional TMDB details request
+adds a synopsis and labeled audience evidence when available. It uses the
+existing bounded TMDB client and does not promote a candidate into the
+shortlist. The preview requires no migration or extra library. Automated
+subject assessment and review interpretation remain part of later AI work.
+
+Tester verification on 2026-11-22 ran `gradlew.bat --offline --no-daemon
+test bootJar` and passed 57 tests with no failures or skips, including the
+IMDb snapshot, audience rules, CLI arguments and fake TMDB details checks.
+The first attempt hit a sandbox restriction on Gradle's loopback daemon.
+The elevated offline retry passed. The packaged CLI rejected an incomplete
+snapshot configuration before startup. `git diff --check` passed.
+
+Downloaded the public IMDb ratings snapshot into the Git-ignored
+`private/title.ratings.tsv.gz` and verified the gzip stream and TSV header.
+IMDb reported November 21, 2026 as its UTC last-modified date. No live TMDB
+or PostgreSQL test ran during offline verification.
+
+On 2026-11-22 the user approved G3 commit and push to
+`EldadDor/PMTD-Agent` on `master` and a read-only comparison preview.
+One packaged run on `pmtd_agent.pmtd` for November 1–21 used the November 21
+IMDb snapshot and a limit of five per list. It returned three shortlisted
+titles and five for manual review. A comparison by displayed title found
+zero of the original five on the shortlist and one in manual review. The
+report is Git-ignored. The preview used no live TMDB context request.

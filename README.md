@@ -144,21 +144,36 @@ The manual preview ranks stored TMDB candidates using genre evidence from local
 IMDb ratings. It only considers candidates with a checked IMDb identity and
 excludes known rated titles; an unrated title may still have been watched. The
 limited discovery and conservative identity checks can yield no recommendations.
-It makes no network requests, does not write to PostgreSQL, and disables Flyway.
+By default it uses local data. It opens PostgreSQL read-only and disables Flyway.
 Movie dates are primary releases; TV dates are series premieres, not new-season
 events or streaming availability. Results reveal personal preferences and should
 be kept private. A preview using actual history requires separate authorization.
 
-Choose an inclusive window of at most 31 days for already-imported candidates:
+For individual personal use, download `title.ratings.tsv.gz` from the
+[IMDb datasets page](https://data.imdb.com/non-commercial-datasets/) and keep
+it outside Git. Pass the local file and its UTC snapshot date with an inclusive
+release window of at most 31 days for already-imported candidates:
 
 ```powershell
-java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=postgres,local' --recommend-from=2026-11-01 --recommend-to=2026-11-21 --recommend-limit=5
+$snapshotDate = (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd')
+java -jar build/libs/pmtd-agent-0.0.1-SNAPSHOT.jar '--spring.profiles.active=postgres,local' --recommend-from=2026-11-01 --recommend-to=2026-11-21 '--recommend-imdb-ratings=private/title.ratings.tsv.gz' "--recommend-imdb-date=$snapshotDate" --recommend-limit=5
 ```
 
-The optional limit defaults to five and must be between one and ten. A candidate
-must meet the fixed initial relevance threshold; scores are a provisional
-heuristic, not a guarantee of relevance. Original English and US, UK or Australian
-origin are used to order equally relevant candidates.
+Use the current UTC date variable only for a snapshot obtained that day. The
+limit defaults to five and applies to each list independently. A title still
+needs enough relevant genre evidence to be shown. A fresh IMDb score below 6.5
+excludes it. At least 100 votes are needed for the shortlist, and 1,000 or more
+votes receive priority. Missing or older ratings, sparse votes, and reality or
+documentary formats place otherwise eligible titles in manual review. A snapshot
+more than two days old is treated as stale. Running without a snapshot produces
+only manual-review candidates. Check the linked synopsis and format before
+selecting any title for delivery.
+
+Manual review includes a TMDB reviews link. If a live TMDB lookup is approved,
+add `--recommend-tmdb-context` with the existing local TMDB read token. This
+fetches synopsis and any TMDB audience score with a vote count for manual-review
+titles. TMDB scores provide additional context and do not affect shortlist
+eligibility.
 
 ## PostgreSQL setup
 

@@ -20,9 +20,9 @@ internal class RecommendationRepository(private val jdbc: JdbcClient, transactio
         propagationBehavior = TransactionDefinition.PROPAGATION_REQUIRES_NEW
     }
 
-    fun preview(from: LocalDate, to: LocalDate, limit: Int): List<ScoredRecommendation> {
+    fun preview(from: LocalDate, to: LocalDate, limit: Int? = null): List<ScoredRecommendation> {
         validateTmdbWindow(from, to)
-        require(limit in 1..10) { "Recommendation limit must be between 1 and 10" }
+        require(limit == null || limit in 1..10) { "Recommendation limit must be between 1 and 10" }
         return checkNotNull(snapshot.execute {
             val history = jdbc.sql("""
                 SELECT m.catalog_title_id, m.media_type, r.rating, m.genre_ids
@@ -37,7 +37,7 @@ internal class RecommendationRepository(private val jdbc: JdbcClient, transactio
             }.list()
             val candidates = jdbc.sql("""
                 SELECT c.media_type, c.tmdb_id, c.title, c.primary_date, c.original_language,
-                       c.genre_ids, c.origin_countries
+                       c.genre_ids, c.origin_countries, c.imdb_id
                 FROM tmdb_candidate c
                 WHERE c.link_status = 'unmatched' AND c.imdb_id ~ '^tt[0-9]+$'
                   AND c.primary_date BETWEEN :from AND :to
@@ -76,7 +76,8 @@ internal class RecommendationRepository(private val jdbc: JdbcClient, transactio
             """.trimIndent()).param("from", from).param("to", to).query { row, _ ->
                 RecommendationCandidate(row.getString("media_type"), row.getLong("tmdb_id"),
                     row.getString("title"), row.getObject("primary_date", LocalDate::class.java),
-                    row.getString("original_language"), row.longArray("genre_ids"), row.stringArray("origin_countries"))
+                    row.getString("original_language"), row.longArray("genre_ids"), row.stringArray("origin_countries"),
+                    row.getString("imdb_id"))
             }.list()
             RecommendationScorer.rank(history, candidates, limit)
         })

@@ -2,11 +2,13 @@
 
 Review before each task and update after it. Last reviewed: 2026-11-22 (Asia/Jerusalem).
 
-- **Current:** [Phase 1D — Deterministic ranking](work_current_phase.md). The [personalized preview](deterministic-ranking-proposal.md) passed offline and disposable PostgreSQL checks. The user approved G3 delivery of `f76ae3c` on 2026-11-22. The one-time real-history preview awaits separate authorization. Schedule times follow a manual full run.
+- **Current:** [Phase 1D — Deterministic ranking](work_current_phase.md). The comparison preview returned three shortlisted titles and five for manual review. The result awaits user review before phase closure. Schedule times follow a manual full run.
 - **Next:** [1E Notifications and feedback](next_phase.md) · [Later phases](proposed_next_phases.md). Revised sequence approved at G0 on 2026-11-21.
 - **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [Discovery design](discovery-persistence-proposal.md) · [TMDB preview](tmdb-discovery-proposal.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md)
 
 ## Completed
+
+- **P1D-02:** Added IMDb audience ratings and manual review. The user approved G3 and a read-only comparison on 2026-11-22. Offline verification and the comparison passed. [Evidence](deterministic-ranking-proposal.md#p1d-02-implementation).
 
 - **P1C-03:** The bounded TMDB import passed 40 offline and 20 disposable PostgreSQL tests. Two live sample runs against the disposable catalog stored the same 77 candidates without duplicates. The user approved V3 on `pmtd_agent.pmtd`, and Flyway history and schema checks passed on 2026-11-21. User authorized commit and push (G3) and reported completing the laptop rollout. [Verification](tmdb-persistence-proposal.md#verification)
 

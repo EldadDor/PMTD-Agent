@@ -21,6 +21,10 @@ class RecommendationArgumentsTest {
             arrayOf("--recommend-from=invalid", to),
             arrayOf(from, to, "--imdb-stats"),
             arrayOf(from, to, "--tmdb-enrich-limit=1"),
+            arrayOf(from, to, "--recommend-imdb-ratings=ratings.tsv.gz"),
+            arrayOf(from, to, "--recommend-imdb-date=2026-01-01"),
+            arrayOf(from, to, "--recommend-imdb-ratings=", "--recommend-imdb-date=2026-01-01"),
+            arrayOf(from, to, "--recommend-tmdb-context=true"),
         )
         for (args in invalid) {
             assertThatThrownBy { main(args) }.isInstanceOf(RuntimeException::class.java)

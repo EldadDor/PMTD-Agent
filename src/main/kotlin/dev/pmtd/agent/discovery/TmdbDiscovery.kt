@@ -45,6 +45,7 @@ internal data class TmdbCandidate(
 )
 
 internal data class TmdbResults(val candidates: List<TmdbCandidate>, val morePages: Boolean, val pagesFetched: Int)
+internal data class TmdbAudienceContext(val score: java.math.BigDecimal?, val votes: Long?, val synopsis: String?)
 
 internal class TmdbDiscovery(
     token: String,
@@ -122,6 +123,17 @@ internal class TmdbDiscovery(
         val imdbId = optionalText(root, "imdb_id")?.takeIf { it.isNotEmpty() } ?: return null
         require(imdbId.matches(Regex("tt[0-9]+"))) { "Invalid IMDb identity reported by TMDB" }
         return imdbId
+    }
+
+    fun audienceContext(media: TmdbMedia, id: Long): TmdbAudienceContext {
+        val detail = request("candidate details") { it.uri("/3/${media.resource}/{id}", id) }
+        require(positiveId(detail.path("id")) == id) { "Unexpected TMDB candidate details ID" }
+        val votes = detail.path("vote_count").takeIf { it.isIntegralNumber && it.canConvertToLong() }
+            ?.asLong()?.takeIf { it > 0 }
+        val score = detail.path("vote_average").takeIf { votes != null && it.isNumber }
+            ?.decimalValue()?.takeIf { it >= java.math.BigDecimal.ONE && it <= java.math.BigDecimal.TEN }
+        val synopsis = optionalText(detail, "overview")?.replace(CONTROL, " ")?.trim()?.take(500)
+        return TmdbAudienceContext(score, votes, synopsis?.takeIf { it.isNotBlank() })
     }
 
     fun ratedMetadata(imdbId: String, media: TmdbMedia): RatedLookup {

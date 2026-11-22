@@ -21,6 +21,9 @@ import dev.pmtd.agent.discovery.runTvmaze
 import dev.pmtd.agent.discovery.TvmazeDiscovery
 import dev.pmtd.agent.discovery.TvmazeScheduleImport
 import dev.pmtd.agent.recommendation.RecommendationRepository
+import dev.pmtd.agent.recommendation.AudienceDecision
+import dev.pmtd.agent.recommendation.ImdbRatingsSnapshot
+import dev.pmtd.agent.recommendation.classifyAudience
 import java.time.LocalDate
 import java.nio.file.Path
 
@@ -129,10 +132,11 @@ private fun runRecommendationPreview(args: Array<String>) {
     val command = args.filter { it.startsWith("--recommend-") }
     val pairs = command.map { it.substringBefore('=') to it.substringAfter('=', "") }
     val keys = pairs.map { it.first }
-    require(keys.count { it == "--recommend-from" } == 1 && keys.count { it == "--recommend-to" } == 1 &&
-        keys.count { it == "--recommend-limit" } <= 1 && keys.size in 2..3 &&
-        keys.all { it in setOf("--recommend-from", "--recommend-to", "--recommend-limit") }) {
-        "Provide one from date, one to date, and an optional limit"
+    val allowed = setOf("--recommend-from", "--recommend-to", "--recommend-limit", "--recommend-imdb-ratings",
+        "--recommend-imdb-date", "--recommend-tmdb-context")
+    require(keys.size == keys.toSet().size && keys.all { it in allowed } &&
+        "--recommend-from" in keys && "--recommend-to" in keys) {
+        "Provide one from date, one to date, and each optional argument at most once"
     }
     val options = pairs.toMap()
     val from = parseTmdbDate(options.getValue("--recommend-from"))
@@ -140,8 +144,17 @@ private fun runRecommendationPreview(args: Array<String>) {
     validateTmdbWindow(from, to)
     val limit = options["--recommend-limit"]?.toIntOrNull() ?: if ("--recommend-limit" in options) null else 5
     require(limit != null && limit in 1..10) { "Recommendation limit must be between 1 and 10" }
+    val snapshotFile = options["--recommend-imdb-ratings"]
+    val snapshotDate = options["--recommend-imdb-date"]?.let(::parseTmdbDate)
+    val today = LocalDate.now(java.time.ZoneOffset.UTC)
+    require((snapshotFile == null) == (snapshotDate == null) && snapshotFile?.isBlank() != true) {
+        "Provide both the IMDb snapshot file and its date"
+    }
+    require(snapshotDate == null || snapshotDate <= today) { "IMDb snapshot date cannot be in the future" }
+    val includeTmdb = "--recommend-tmdb-context" in command
+    require("--recommend-tmdb-context" !in options || includeTmdb) { "Use --recommend-tmdb-context without a value" }
     val appArgs = args.filterNot { it.startsWith("--recommend-") }.toTypedArray()
-    val recommendations = try {
+    val (candidates, tmdb) = try {
         SpringApplicationBuilder(MovieTvAgentApplication::class.java).web(WebApplicationType.NONE)
             .initializers({ context -> context.environment.propertySources.addFirst(
                 MapPropertySource("recommendationPreviewCommand", mapOf(
@@ -151,20 +164,50 @@ private fun runRecommendationPreview(args: Array<String>) {
                 )),
             ) }).run(*appArgs).use { context ->
                 require("postgres" in context.environment.activeProfiles) { "The postgres profile is required" }
-                context.getBean(RecommendationRepository::class.java).preview(from, to, limit)
+                val provider = if (includeTmdb) TmdbDiscovery(
+                    context.environment.getRequiredProperty("PMTD_TMDB_READ_TOKEN"), requestLimit = limit * 3,
+                ) else null
+                context.getBean(RecommendationRepository::class.java).preview(from, to) to provider
             }
     } catch (_: Exception) {
-        throw IllegalStateException("Recommendation preview failed. Check the postgres profile and database configuration.")
+        throw IllegalStateException("Recommendation preview failed. Check the postgres configuration and any requested TMDB token.")
     }
+    val snapshot = if (snapshotFile != null && snapshotDate != null) {
+        ImdbRatingsSnapshot.load(Path.of(snapshotFile), snapshotDate, candidates.mapNotNull { it.candidate.imdbId }.toSet())
+    } else null
+    val decisions = candidates.groupBy { classifyAudience(it.candidate, snapshot, today) }
     println("This product uses the TMDB API but is not endorsed or certified by TMDB.")
-    if (recommendations.isEmpty()) {
-        println("No recommendations meet the relevance and identity requirements.")
-    } else {
-        recommendations.forEachIndexed { index, result ->
+    if (snapshot != null) println("Information courtesy of IMDb (https://www.imdb.com). Used with permission.")
+    val shortlist = decisions[AudienceDecision.SHORTLIST].orEmpty().sortedByDescending {
+        (snapshot?.ratings?.get(it.candidate.imdbId)?.votes ?: 0L) >= 1_000
+    }.take(limit)
+    val review = decisions[AudienceDecision.REVIEW].orEmpty().take(limit)
+    if (shortlist.isEmpty()) println("No recommendations meet the shortlist requirements.")
+    for ((heading, results) in listOf("Shortlist" to shortlist, "For manual review" to review)) {
+        if (results.isEmpty()) continue
+        println(heading)
+        results.forEachIndexed { index, result ->
             val item = result.candidate
             val title = item.title.replace(Regex("[\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]"), " ").trim()
             val dateLabel = if (item.media == "movie") "primary release" else "series premiere"
             println("${index + 1}. $title - $dateLabel ${item.date}. Shares supported genres with highly rated history.")
+            val rating = snapshot?.ratings?.get(item.imdbId)
+            if (snapshot != null && rating != null) println("   IMDb ${rating.score}/10, ${rating.votes} votes (snapshot ${snapshot.date}).")
+            else println("   IMDb audience rating unavailable.")
+            val tmdbPage = "https://www.themoviedb.org/${item.media}/${item.tmdbId}"
+            println("   Synopsis: $tmdbPage")
+            if (heading == "For manual review") {
+                println("   Reviews: $tmdbPage/reviews")
+                if (tmdb != null) {
+                    val media = if (item.media == "movie") TmdbMedia.MOVIE else TmdbMedia.TV
+                    val context = runCatching { tmdb.audienceContext(media, item.tmdbId) }.getOrNull()
+                    if (context == null) println("   TMDB context unavailable.")
+                    else {
+                        if (context.score != null) println("   TMDB ${context.score}/10, ${context.votes} votes.")
+                        if (context.synopsis != null) println("   ${context.synopsis}")
+                    }
+                }
+            }
         }
     }
 }

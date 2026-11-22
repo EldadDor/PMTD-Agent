@@ -7,6 +7,7 @@ internal data class RatedEvidence(val titleId: UUID, val media: String, val rati
 internal data class RecommendationCandidate(
     val media: String, val tmdbId: Long, val title: String, val date: LocalDate,
     val language: String?, val genres: List<Long>, val countries: List<String>,
+    val imdbId: String? = null,
 )
 internal data class ScoredRecommendation(val candidate: RecommendationCandidate, val score: Int)
 
@@ -15,8 +16,8 @@ internal object RecommendationScorer {
     private const val THRESHOLD = 350_000
     private val preferredCountries = setOf("US", "GB", "AU")
 
-    fun rank(ratings: List<RatedEvidence>, candidates: List<RecommendationCandidate>, limit: Int): List<ScoredRecommendation> {
-        require(limit in 1..10) { "Recommendation limit must be between 1 and 10" }
+    fun rank(ratings: List<RatedEvidence>, candidates: List<RecommendationCandidate>, limit: Int? = null): List<ScoredRecommendation> {
+        require(limit == null || limit in 1..10) { "Recommendation limit must be between 1 and 10" }
         data class Totals(var positive: Long = 0, var negative: Long = 0, var positiveTitles: Int = 0)
         val profiles = mutableMapOf<Pair<String, Long>, Totals>()
         for (rating in ratings.distinctBy { it.media to it.titleId }) {
@@ -33,7 +34,7 @@ internal object RecommendationScorer {
             if (total.positiveTitles < 3 || total.positive <= total.negative) 0L
             else (total.positive - total.negative) * SCALE / (total.positive + total.negative)
         }
-        return candidates.mapNotNull { candidate ->
+        val ranked = candidates.mapNotNull { candidate ->
             val genres = candidate.genres.distinct()
             if (genres.isEmpty()) return@mapNotNull null
             val score = (genres.sumOf { scores[candidate.media to it] ?: 0L } / genres.size).toInt()
@@ -45,6 +46,7 @@ internal object RecommendationScorer {
                 .thenByDescending { it.candidate.date }
                 .thenBy { it.candidate.media }
                 .thenBy { it.candidate.tmdbId },
-        ).take(limit)
+        )
+        return if (limit == null) ranked else ranked.take(limit)
     }
 }

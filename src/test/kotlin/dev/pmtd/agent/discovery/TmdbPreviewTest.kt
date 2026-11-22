@@ -33,6 +33,21 @@ class TmdbPreviewTest {
     private val preview = TmdbPreview(discovery, catalog)
 
     @Test
+    fun `candidate context keeps TMDB votes separate and checks identity`() {
+        response("/3/tv/44", """{"id":44,"vote_average":7.2,"vote_count":18,"overview":"Synthetic premise"}""")
+        response("/3/tv/45", """{"id":45,"vote_average":0,"vote_count":0}""")
+        response("/3/tv/46", """{"id":47,"vote_average":8,"vote_count":100}""")
+
+        val result = discovery.audienceContext(TmdbMedia.TV, 44)
+        assertThat(result.score).isEqualByComparingTo("7.2")
+        assertThat(result.votes).isEqualTo(18L)
+        assertThat(result.synopsis).isEqualTo("Synthetic premise")
+        assertThat(discovery.audienceContext(TmdbMedia.TV, 45)).isEqualTo(TmdbAudienceContext(null, null, null))
+        assertThatThrownBy { discovery.audienceContext(TmdbMedia.TV, 46) }.hasMessageContaining("details ID")
+        server.verify()
+    }
+
+    @Test
     fun `movie discovery caps pages and deduplicates candidate IDs`() {
         response(discoverUrl(TmdbMedia.MOVIE, 1), page(1, 3, movie(44), movie(55)))
         response(discoverUrl(TmdbMedia.MOVIE, 2), page(2, 3, movie(55), movie(66)))
