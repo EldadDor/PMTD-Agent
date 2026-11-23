@@ -37,4 +37,4 @@ See the [index](README.md#completed) for completed work.
 
 | ID | Task / scope | Status | Gate | Request / decision / evidence | Last reviewed |
 | --- | --- | --- | --- | --- | --- |
-| P1E-01 | LINE gateway, signed webhook and title feedback | In progress | — | All 27 PostgreSQL tests passed. User approved V5 on `pmtd_agent.pmtd` on 2026-11-23. Flyway applied it and read-only verification confirmed V1–V5 and the five new tables. User authorized G3 commit and push on 2026-11-23; delivery recorded in Git history. Live webhook testing remains a separate decision. [Evidence](line-feedback-proposal.md#verification-status). | 2026-11-23 |
+| P1E-01 | LINE gateway, signed webhook and title feedback | In progress | — | All 27 PostgreSQL tests passed. User approved V5 on `pmtd_agent.pmtd` on 2026-11-23. Flyway applied it and read-only verification confirmed V1–V5 and the five new tables. User authorized G3; implementation and supporting records pushed as `e22ff87` to `origin/master` on 2026-11-23. Live webhook testing remains a separate decision. [Evidence](line-feedback-proposal.md#verification-status). | 2026-11-23 |
