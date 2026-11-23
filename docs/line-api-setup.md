@@ -1,9 +1,16 @@
 # LINE API setup for PMTD-Agent
 
-Last reviewed: 2026-11-21 (Asia/Jerusalem)
+Last reviewed: 2026-11-23 (Asia/Jerusalem)
 Status: The user confirmed Messaging API activation for PMTD-Agent and supplied
 the channel settings. They are stored in the ignored `application-local.yml` for
-future use. The webhook handler, channel quota and outbound access token are pending.
+future use. The webhook handler and application outbound command are pending.
+
+On 2026-11-23 the user supplied an access token and recipient ID in ignored
+local configuration and authorized a sending test. Read-only LINE API checks
+matched the expected bot and recipient display name and reported a monthly
+limit of 500 with approximate usage of zero. A single direct API push containing
+three shortlisted recommendations returned HTTP 200. The user confirmed receipt
+on 2026-11-23. The direct test did not exercise an application gateway.
 
 Account links supplied by the user:
 [Official Account Manager](https://manager.line.biz/account/@966sowkr) and
@@ -67,7 +74,6 @@ waits for the user's deferred feedback decision.
 Implement monthly-cap checks, bounded sends and provider-supported retry handling
 after schedule/resend decisions. Retain delivery uncertainty across crashes; a
 locally unique delivery key alone cannot prove a remote send happened once.
-The next messaging checkpoint is one manually triggered personalized push to
-the allowlisted recipient. Confirm the quota and obtain approval for the real
-send, then have the recipient confirm receipt. Schedule the signed webhook
-and feedback work after that confirmation.
+The first direct personalized push was received. The remaining messaging work
+includes an application gateway, signed webhook and feedback, subject to the
+project's phase and design approvals.

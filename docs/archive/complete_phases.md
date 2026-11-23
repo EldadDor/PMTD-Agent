@@ -1,5 +1,32 @@
 # Completed phases
 
+## Phase 1D — Deterministic ranking
+
+Closed on 2026-11-23 with the user's G4 approval. P1D-01 delivered the
+deterministic preview and P1D-02 added IMDb audience scores and manual review.
+The user found the revised movie results appealing. One direct LINE push with
+three shortlisted titles was accepted and the user confirmed receipt.
+Carry over title-level subject and format fit, movie awareness, grounded AI
+explanations and model evaluation to later ranking work. Scheduling follows
+the manual full run. [Evidence](../deterministic-ranking-proposal.md#p1d-02-implementation).
+
+## Phase 1C — Discovery and polling
+
+Closed on 2026-11-21 with the user's explicit G4 approval following the approved
+manual-first sequence. Carry into 1F: scheduled polling and schedule decisions,
+incremental discovery completeness, release/season/episode event semantics,
+and trusted TVmaze cross-source identity. Select schedule times after a manual
+full run. The bounded imports do not establish exhaustive coverage.
+
+| ID | Outcome | Evidence |
+| --- | --- | --- |
+| P1C-01 | TVmaze manual persistence and V2 verified; disposable import repeated. | [Discovery design](../discovery-persistence-proposal.md); no application TVmaze import reported. |
+| P1C-02 | TMDB read-only preview verified. | [Preview](../tmdb-discovery-proposal.md#verification), `a45f843`. |
+| P1C-03 | TMDB candidate persistence and V3 verified. | [Persistence verification](../tmdb-persistence-proposal.md#verification), `ebbb880`; 77 candidates in the disposable live test, laptop test reported without counts. |
+| P1C-04 | Ignored local PostgreSQL environment settings prepared. | [Index](../README.md#completed). |
+| P1C-05 | V4 applied; 45 offline and 23 disposable PostgreSQL tests passed; approved history enrichment yielded 882 matches, one unmatched, two conflicts. | [Verification](../rated-title-enrichment-proposal.md#verification); implementation `52a8add`, V4 record `16f5c98`. |
+| P1C-06 | Closure with stated carry-over approved by user at G4. | [Closure review](../first-personalized-run-review.md#phase-1c-closure-review). |
+
 ## Phase 0 — Technical validation and decisions
 
 Closed on 2026-11-20 (Asia/Jerusalem). G4 approved by the user. The verified

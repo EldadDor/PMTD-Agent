@@ -23,6 +23,8 @@ import dev.pmtd.agent.imdb.ImdbImportBatch
 import dev.pmtd.agent.imdb.ImdbImportService
 import dev.pmtd.agent.imdb.ImportCounts
 import dev.pmtd.agent.imdb.RatingWrite
+import dev.pmtd.agent.notification.LineFeedbackRepository
+import dev.pmtd.agent.notification.LinePostbackEvent
 import dev.pmtd.agent.recommendation.RecommendationRepository
 import java.security.MessageDigest
 import java.nio.file.Files
@@ -122,8 +124,8 @@ class PostgresPersistenceTest {
     fun `migration is confined to target schema and is not repeated`() {
         assertThat(jdbc.sql("SELECT current_schema()").query(String::class.java).single()).isEqualTo(schema)
         val flyway = context.getBean(Flyway::class.java)
-        assertThat(flyway.info().applied()).hasSize(4)
-        assertThat(flyway.info().current().version.version).isEqualTo("4")
+        assertThat(flyway.info().applied()).hasSize(5)
+        assertThat(flyway.info().current().version.version).isEqualTo("5")
         assertThat(flyway.migrate().migrationsExecuted).isZero()
         flyway.validate()
         val tables = jdbc.sql("SELECT tablename FROM pg_tables WHERE schemaname = :schema")
@@ -131,6 +133,7 @@ class PostgresPersistenceTest {
         assertThat(tables).containsExactlyInAnyOrder(
             "flyway_schema_history", "catalog_title", "title_external_id", "imdb_import_batch", "imported_rating",
             "tvmaze_schedule_episode", "tvmaze_schedule_checkpoint", "tmdb_candidate", "tmdb_discovery_run", "rated_title_tmdb_metadata", "rated_title_enrichment_attempt",
+            "notification_delivery", "notification_item", "line_webhook_event", "feedback_event", "user_title_state",
         )
     }
 
@@ -256,7 +259,7 @@ class PostgresPersistenceTest {
         context.close()
         context = startContext()
         assertThat(catalog.findById(title.id)).isEqualTo(title)
-        assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(4)
+        assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(5)
     }
 
     @Test
@@ -622,6 +625,94 @@ class PostgresPersistenceTest {
         assertThatThrownBy { repo.preview(day, day.plusDays(31), 5) }.isInstanceOf(IllegalArgumentException::class.java)
         assertThatThrownBy { repo.preview(day, day, 0) }.isInstanceOf(IllegalArgumentException::class.java)
         assertThatThrownBy { repo.preview(day, day, 11) }.isInstanceOf(IllegalArgumentException::class.java)
+    }
+
+    @Test
+    fun `concurrent LINE redelivery records feedback once`() {
+        val repo = lineFeedbackRepository()
+        val item = notificationItem(998701)
+        val event = LinePostbackEvent("fixture-line-repeat", item, "interested", now.toEpochMilli())
+        val start = CountDownLatch(1)
+        Executors.newFixedThreadPool(2).use { pool ->
+            val jobs = (1..2).map { pool.submit {
+                check(start.await(5, TimeUnit.SECONDS))
+                repo.accept(event)
+            } }
+            start.countDown()
+            jobs.forEach { it.get(15, TimeUnit.SECONDS) }
+        }
+        assertThat(jdbc.sql("SELECT outcome FROM line_webhook_event WHERE event_id = :event")
+            .param("event", event.id).query(String::class.java).list()).containsExactly("applied")
+        assertThat(jdbc.sql("SELECT action FROM feedback_event WHERE item_id = :item")
+            .param("item", item).query(String::class.java).list()).containsExactly("interested")
+        assertThat(jdbc.sql("SELECT event_id FROM user_title_state WHERE media_type = 'tv' AND tmdb_id = 998701")
+            .query(String::class.java).list()).containsExactly(event.id)
+    }
+
+    @Test
+    fun `LINE feedback orders by event time and ID and ignores unknown targets`() {
+        val repo = lineFeedbackRepository()
+        val item = notificationItem(998702)
+        val time = now.toEpochMilli()
+        repo.accept(LinePostbackEvent("fixture-line-order-b", item, "interested", time))
+        repo.accept(LinePostbackEvent("fixture-line-order-a", item, "not_interested", time))
+        repo.accept(LinePostbackEvent("fixture-line-order-z", item, "not_interested", time - 1))
+        assertThat(jdbc.sql("SELECT event_id FROM user_title_state WHERE media_type = 'tv' AND tmdb_id = 998702")
+            .query(String::class.java).list()).containsExactly("fixture-line-order-b")
+        repo.accept(LinePostbackEvent("fixture-line-order-c", item, "watched", time))
+        val unknown = "fixture-line-unknown"
+        repo.accept(LinePostbackEvent(unknown, UUID.randomUUID(), "watched", time + 1))
+
+        assertThat(jdbc.sql("SELECT action FROM user_title_state WHERE media_type = 'tv' AND tmdb_id = 998702")
+            .query(String::class.java).list()).containsExactly("watched")
+        assertThat(jdbc.sql("SELECT event_id FROM user_title_state WHERE media_type = 'tv' AND tmdb_id = 998702")
+            .query(String::class.java).list()).containsExactly("fixture-line-order-c")
+        assertThat(jdbc.sql("SELECT count(*) FROM feedback_event WHERE item_id = :item")
+            .param("item", item).query(Long::class.java).single()).isEqualTo(4)
+        assertThat(jdbc.sql("SELECT outcome FROM line_webhook_event WHERE event_id = :event")
+            .param("event", unknown).query(String::class.java).list()).containsExactly("ignored")
+        assertThat(jdbc.sql("SELECT count(*) FROM feedback_event WHERE event_id = :event")
+            .param("event", unknown).query(Long::class.java).single()).isZero()
+    }
+
+    @Test
+    fun `LINE feedback rolls back the event and state together and permits redelivery`() {
+        val repo = lineFeedbackRepository()
+        val item = notificationItem(998703)
+        val event = LinePostbackEvent("fixture-line-rollback", item, "watched", now.toEpochMilli())
+        assertThatThrownBy { transactions.executeWithoutResult {
+            repo.accept(event)
+            throw IllegalStateException("synthetic rollback after persisting feedback")
+        } }.isInstanceOf(IllegalStateException::class.java)
+        for (table in listOf("line_webhook_event", "feedback_event", "user_title_state")) {
+            assertThat(jdbc.sql("SELECT count(*) FROM $table WHERE event_id = :event")
+                .param("event", event.id).query(Long::class.java).single()).isZero()
+        }
+        repo.accept(event)
+        assertThat(jdbc.sql("SELECT action FROM user_title_state WHERE event_id = :event")
+            .param("event", event.id).query(String::class.java).list()).containsExactly("watched")
+    }
+
+    private fun lineFeedbackRepository() = LineFeedbackRepository(jdbc, context.getBean(PlatformTransactionManager::class.java))
+
+    private fun notificationItem(tmdbId: Long): UUID {
+        val delivery = UUID.randomUUID()
+        val item = UUID.randomUUID()
+        val timestamp = java.sql.Timestamp.from(now)
+        jdbc.sql("""
+            INSERT INTO tmdb_candidate(media_type, tmdb_id, title, link_status, first_seen_at, last_seen_at)
+            VALUES ('tv', :tmdb, 'Synthetic feedback title', 'not_checked', :time, :time)
+        """.trimIndent()).param("tmdb", tmdbId).param("time", timestamp).update()
+        jdbc.sql("""
+            INSERT INTO notification_delivery(id, retry_key, recipient_id, payload, status, created_at)
+            VALUES (:id, :retry, :recipient, '[{"type":"text","text":"Synthetic delivery"}]', 'accepted', :time)
+        """.trimIndent()).param("id", delivery).param("retry", UUID.randomUUID())
+            .param("recipient", "U" + "1".repeat(32)).param("time", timestamp).update()
+        jdbc.sql("""
+            INSERT INTO notification_item(id, delivery_id, media_type, tmdb_id, title, position)
+            VALUES (:id, :delivery, 'tv', :tmdb, 'Synthetic feedback title', 1)
+        """.trimIndent()).param("id", item).param("delivery", delivery).param("tmdb", tmdbId).update()
+        return item
     }
 
     private fun fixtureCsv(contents: String): Path = fixtureDirectory.resolve("${UUID.randomUUID()}.csv")

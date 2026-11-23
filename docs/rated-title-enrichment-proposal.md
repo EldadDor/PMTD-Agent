@@ -75,7 +75,7 @@ and source attribution, but do not store raw TMDB responses or personal ratings.
 - After migration or stored user metadata, rollback requires a reviewed forward
   migration or verified backup/restore. Never edit an applied migration. Applying
   V4 to `pmtd_agent.pmtd` and running with real history each require separate approval.
-  V4 was subsequently approved and applied; real-history approval remains pending.
+  V4 and the bounded real-history enrichment were subsequently approved and completed.
 
 An alternative is to rank using only genres for discovered candidates. It would
 not establish genre preferences from rated history because the current IMDb import
@@ -84,8 +84,9 @@ threshold selection, LINE sends, scheduled runs and feedback remain later work.
 
 ## Verification
 
-The user approved G3 commit and push and separately approved applying V4 to
-`pmtd_agent.pmtd` on 2026-11-21. Real-history requests require separate approval.
+The user approved G3 commit and push, applying V4, the initial real-history run,
+and processing the remaining eligible history in batches of up to 20 titles
+against `pmtd_agent.pmtd` on 2026-11-21.
 
 On 2026-11-21, the approved implementation passed
 `gradlew.bat --offline --no-daemon test bootJar`: 45 tests passed. The changes
@@ -102,7 +103,16 @@ passed. After the user's separate approval on 2026-11-21, Flyway validated
 V1–V4 and applied V4 to `pmtd_agent.pmtd` using the packaged JAR and
 `--spring.flyway.target=4`. Read-only verification confirmed successful
 V1–V4 history, both new tables and their constraints; both tables were empty.
-No real rated-title history was sent to TMDB.
+The first approved real-history run was initially delayed until a local TMDB
+token was configured. On 2026-11-21, `--tmdb-enrich-limit=20` ran once against
+`pmtd_agent.pmtd`: 20 matched, zero unmatched, conflicts or skipped. Aggregate
+database checks confirmed 20 matched attempts and 20 metadata records, all
+with genres and original language. The user subsequently approved processing
+the remaining eligible history. Forty-four further bounded batches processed
+865 titles: 862 matched, one unmatched and two conflicts. Aggregate database
+verification found 885 attempts in total: 882 matched, one unmatched, two
+conflicts, and zero eligible titles remaining unattempted. All 882 metadata
+records contain genres and original language. Conflicts were left unlinked.
 
 Sources: [TMDB find by external ID](https://developer.themoviedb.org/reference/find-by-id),
 [TMDB movie details](https://developer.themoviedb.org/reference/movie-details),

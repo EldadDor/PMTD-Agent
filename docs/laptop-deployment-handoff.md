@@ -19,8 +19,10 @@ The default-profile Docker smoke check does not exercise PostgreSQL or ranking.
 V4 and the enrichment command passed disposable PostgreSQL validation. The user
 approved V4, and it was applied and verified on `pmtd_agent.pmtd` on 2026-11-21.
 A normal application startup with the `postgres` profile applies pending Flyway migrations. The enrichment command
-disables Flyway. The first real-history lookup also needs explicit approval because
-it sends IMDb title IDs to TMDB. See the [enrichment design](rated-title-enrichment-proposal.md).
+disables Flyway. The user approved processing the then-eligible history in
+bounded batches, which completed on 2026-11-21. Requests send IMDb title IDs
+to TMDB. See the
+[enrichment design](rated-title-enrichment-proposal.md).
 
 ## Next rollout — TMDB persistence
 

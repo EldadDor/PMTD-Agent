@@ -132,6 +132,23 @@ schema and ranking do not store or use candidate audience ratings or vote counts
 The source, availability, handling of missing ratings and exact ranking rules need
 design before implementation.
 
+### User review of the comparison
+
+On 2026-11-22 the user said the improved preview was better and found the
+high-scoring movie results appealing. Movies are generally something they
+want to hear about as a one-time occasion, without assuming a cinema visit
+or a commitment to watch. Shows compete for limited viewing time and need
+more attention to fit. Distinguish documentaries, reality shows, and scripted
+series, including action, drama and comedy. Judge subject and format within
+those categories using the user's title-level feedback and rating history.
+An individual rejection does not establish a category-wide dislike.
+
+The current scorer builds separate movie and series genre profiles and sends
+documentaries and reality TV to manual review. It does not yet model movie
+awareness separately from a watch recommendation or assess subject and format
+at the level described above. Keep these distinctions in the next ranking and
+feedback design and in future message presentation.
+
 ### Proposed audience rating and review lookup
 
 Use IMDb's daily `title.ratings.tsv.gz` snapshot for individual personal use.

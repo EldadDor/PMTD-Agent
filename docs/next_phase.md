@@ -1,3 +1,3 @@
 # Next phase
 
-**1E — Notifications and feedback.** Send one manually approved personalized LINE message after the preview; begin signed webhook and feedback after receipt is confirmed.
+**1F — Deferred discovery, AI and MVP acceptance.** Complete discovery coverage, grounded AI evaluation, operational hardening and manual-run acceptance.

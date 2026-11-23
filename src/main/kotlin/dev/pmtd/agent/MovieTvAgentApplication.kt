@@ -24,6 +24,11 @@ import dev.pmtd.agent.recommendation.RecommendationRepository
 import dev.pmtd.agent.recommendation.AudienceDecision
 import dev.pmtd.agent.recommendation.ImdbRatingsSnapshot
 import dev.pmtd.agent.recommendation.classifyAudience
+import dev.pmtd.agent.notification.LineDelivery
+import dev.pmtd.agent.notification.LineGateway
+import dev.pmtd.agent.notification.LinePushResult
+import org.springframework.web.client.RestClient
+import java.util.UUID
 import java.time.LocalDate
 import java.nio.file.Path
 
@@ -31,6 +36,10 @@ import java.nio.file.Path
 class MovieTvAgentApplication
 
 fun main(args: Array<String>) {
+    if (args.any { it.startsWith("--line-") }) {
+        runLineDelivery(args)
+        return
+    }
     if (args.any { it.startsWith("--recommend-") }) {
         runRecommendationPreview(args)
         return
@@ -124,6 +133,70 @@ fun main(args: Array<String>) {
     } finally {
         context.close()
     }
+}
+
+private fun runLineDelivery(args: Array<String>) {
+    val options = args.filter { it.startsWith("--line-") }
+    val keys = options.map { it.substringBefore('=') }
+    val allowed = setOf("--line-prepare-from", "--line-prepare-to", "--line-imdb-ratings", "--line-imdb-date", "--line-send")
+    require(keys.distinct().size == keys.size && keys.all { it in allowed }) { "Invalid LINE command" }
+    val values = options.associate { it.substringBefore('=') to it.substringAfter('=', "") }
+    val preparing = "--line-prepare-from" in values
+    require(if (preparing) keys.toSet() == allowed - "--line-send" else keys.toSet() == setOf("--line-send")) {
+        "Provide the preparation dates and IMDb snapshot or one delivery ID to send"
+    }
+    require(args.none { it.startsWith("--recommend-") || it.startsWith("--tmdb-") ||
+        it.startsWith("--tvmaze-") || it.startsWith("--import-imdb") || it == "--imdb-stats" }) { "Use only one command" }
+    val appArgs = args.filterNot { it.startsWith("--line-") }.toTypedArray()
+    SpringApplicationBuilder(MovieTvAgentApplication::class.java).web(WebApplicationType.NONE)
+        .initializers({ context -> context.environment.propertySources.addFirst(
+            MapPropertySource("lineCommand", mapOf("spring.flyway.enabled" to false, "spring.sql.init.mode" to "never")),
+        ) }).run(*appArgs).use { context ->
+            require("postgres" in context.environment.activeProfiles) { "The postgres profile is required" }
+            val recipient = context.environment.getRequiredProperty("PMTD_LINE_USER_ID")
+            require(recipient.matches(Regex("U[0-9a-f]{32}"))) { "Invalid LINE recipient" }
+            val delivery = LineDelivery(context.getBean(org.springframework.jdbc.core.simple.JdbcClient::class.java),
+                context.getBean(org.springframework.transaction.PlatformTransactionManager::class.java))
+            if (preparing) {
+                val from = parseTmdbDate(values.getValue("--line-prepare-from"))
+                val to = parseTmdbDate(values.getValue("--line-prepare-to"))
+                val date = parseTmdbDate(values.getValue("--line-imdb-date"))
+                val today = LocalDate.now(java.time.ZoneOffset.UTC)
+                require(date in today.minusDays(2)..today) { "A current IMDb snapshot is required" }
+                val ranked = context.getBean(RecommendationRepository::class.java).preview(from, to)
+                val snapshot = ImdbRatingsSnapshot.load(Path.of(values.getValue("--line-imdb-ratings")), date,
+                    ranked.mapNotNull { it.candidate.imdbId }.toSet())
+                val eligible = ranked.filter { classifyAudience(it.candidate, snapshot, today) == AudienceDecision.SHORTLIST }
+                    .sortedByDescending { (snapshot.ratings[it.candidate.imdbId]?.votes ?: 0) >= 1000 }.take(5)
+                if (eligible.isEmpty()) println("No eligible recommendations to prepare.")
+                else {
+                    val (id, payload) = delivery.prepare(recipient, eligible)
+                    println("Delivery $id")
+                    println(payload)
+                }
+            } else {
+                val id = UUID.fromString(values.getValue("--line-send"))
+                val token = context.environment.getRequiredProperty("PMTD_LINE_ACCESS_TOKEN")
+                val factory = org.springframework.http.client.SimpleClientHttpRequestFactory().apply {
+                    setConnectTimeout(java.time.Duration.ofSeconds(5))
+                    setReadTimeout(java.time.Duration.ofSeconds(10))
+                }
+                val client = RestClient.builder().baseUrl("https://api.line.me").requestFactory(factory).build()
+                val mapper = tools.jackson.databind.json.JsonMapper.builder().build()
+                fun quota(path: String) = client.get().uri(path).headers { it.setBearerAuth(token) }
+                    .retrieve().body(String::class.java)?.let(mapper::readTree) ?: error("LINE quota unavailable")
+                val limit = quota("/v2/bot/message/quota")
+                val usage = quota("/v2/bot/message/quota/consumption")
+                require(limit.path("type").asText() == "none" ||
+                    (limit.path("type").asText() == "limited" && limit.path("value").isIntegralNumber &&
+                        usage.path("totalUsage").isIntegralNumber && usage.path("totalUsage").asLong() < limit.path("value").asLong())) {
+                    "LINE quota unavailable or exhausted"
+                }
+                val result = delivery.send(id, recipient, LineGateway(token, recipient, client))
+                println("LINE delivery result: ${result.name.lowercase()}")
+                if (result != LinePushResult.ACCEPTED) println("Review delivery status before any further action.")
+            }
+        }
 }
 
 private fun runRecommendationPreview(args: Array<String>) {

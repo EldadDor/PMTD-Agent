@@ -1,7 +1,7 @@
 # Later phases
 
-G0 approved the revised sequence and G4 closed 1C on 2026-11-21. Phase 1D is
-active and Phase 1E is next. The product plan remains the source for full scope.
+G0 approved the revised sequence. The user closed 1D at G4 on 2026-11-23
+and Phase 1E is active. The product plan remains the source for full scope.
 
 - **1F — Deferred discovery, AI and MVP acceptance:** Complete 1C scheduled
   polling, incremental completeness, event semantics and trusted TVmaze identity;
