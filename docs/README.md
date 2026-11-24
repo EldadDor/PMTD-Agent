@@ -1,12 +1,14 @@
 # Project index
 
-Review before each task and update after it. Last reviewed: 2026-11-23 (Asia/Jerusalem).
+Review before each task and update after it. Last reviewed: 2026-11-25 (Asia/Jerusalem).
 
-- **Current:** [Phase 1E — Notifications and feedback](work_current_phase.md). All 27 PostgreSQL tests passed with V1–V5 in the approved disposable schema. V5 was applied and verified on the application database with user approval. [Evidence](line-feedback-proposal.md#verification-status).
-- **Next:** [1F Deferred discovery, AI and MVP acceptance](next_phase.md) · [Later phases](proposed_next_phases.md). Revised sequence approved at G0 on 2026-11-21.
-- **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [Discovery design](discovery-persistence-proposal.md) · [TMDB preview](tmdb-discovery-proposal.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md)
+- **Current:** [Phase 1F — Deferred discovery, AI and MVP acceptance](work_current_phase.md). P1F-01 starts with manual discovery coverage and safe resume rules.
+- **Next:** [Phase 2 — Semantic retrieval](next_phase.md), deferred until MVP acceptance and separate approval. [Roadmap](proposed_next_phases.md).
+- **Work references:** [Product plan](../movie_tv_agent_codex_plan.md) · [Decisions](decisions.md) · [App setup](../README.md) · [Laptop deployment](laptop-deployment-handoff.md) · [PostgreSQL schema](persistence-manifest.md) · [Discovery design](discovery-persistence-proposal.md) · [TMDB preview](tmdb-discovery-proposal.md) · [TVmaze](tvmaze-discovery-proposal.md) · [LINE](line-api-setup.md) · [LINE checklist](../LINE_Tasks.md)
 
 ## Completed
+
+- **Phase 1E:** G3 and G4 approved on 2026-11-25. The V6 follow-up was pushed as `aa51381`. Live verification confirmed colored LINE delivery and independent interest and watched status. [Closure evidence](archive/complete_phases.md#phase-1e--notifications-and-feedback).
 
 - **P1D-02:** Added IMDb audience ratings and manual review. The user approved G3 and a read-only comparison on 2026-11-22. Offline verification and the comparison passed. Pushed `62b5102` and verified it as the `origin/master` branch tip. [Evidence](deterministic-ranking-proposal.md#p1d-02-implementation).
 

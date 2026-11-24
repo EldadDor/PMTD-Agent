@@ -1,40 +1,29 @@
 # Current phase
 
-Last reviewed: 2026-11-23 (Asia/Jerusalem)
+Last reviewed: 2026-11-25 (Asia/Jerusalem)
 
-**Phase 1E — Notifications and feedback**
+**Phase 1F — Deferred discovery, AI and MVP acceptance**
 
-The user approved the manual-first sequence at G0 and closed 1C at G4.
-AI explanation and model evaluation carry into 1F.
-
-P1D-01 was delivered and the approved one-time preview completed. The user
-reviewed the five recommendations and found them unsuitable. The user wants
-quality and vote counts considered alongside individual relevance and limited
-watching capacity. Reality and documentary preferences depend on the title.
-P1D-02 added IMDb audience evidence and manual review. The approved
-comparison returned three shortlisted titles and five for manual review.
-The user found the movie results appealing and clarified different goals for
-movie awareness and show selection. Future ranking and feedback should account
-for show format, subject and genres.
-[Verification](deterministic-ranking-proposal.md#p1d-02-implementation).
-
-On 2026-11-23 the user requested a LINE sending test and reported an ngrok
-tunnel forwarding to localhost:8383. The app has no outbound LINE command yet.
-Local configuration inspection found no identified outbound access token or
-recipient ID. The user's own recipient ID, channel token and quota status are
-needed for a direct one-message test. No message was sent. The previously
-approved signed webhook and feedback sequence remains after first receipt.
-The user added both settings locally. On 2026-11-23 the token setting was
-present, but the recipient value failed LINE's user-ID format check. The
-recipient value was subsequently corrected. On 2026-11-23, read-only LINE
-API checks confirmed the expected bot and recipient display name, with
-approximate quota usage of zero out of 500. A single user-authorized push
-containing the three comparison shortlist items was sent directly through
-the LINE API and returned HTTP 200. The user confirmed receipt on 2026-11-23.
-This was a direct API test; the application has no outbound LINE command yet.
-
-See the [index](README.md#completed) for completed work.
+Phase 1E closed with G4 approval after delivery of the V6 follow-up.
+[Closure evidence](archive/complete_phases.md#phase-1e--notifications-and-feedback).
 
 | ID | Task / scope | Status | Gate | Request / decision / evidence | Last reviewed |
 | --- | --- | --- | --- | --- | --- |
-| P1E-01 | LINE gateway, signed webhook and title feedback | In progress | — | All 27 PostgreSQL tests passed. User approved V5 on `pmtd_agent.pmtd` on 2026-11-23. Flyway applied it and read-only verification confirmed V1–V5 and the five new tables. User authorized G3; implementation and supporting records pushed as `e22ff87` to `origin/master` on 2026-11-23. Live webhook testing remains a separate decision. [Evidence](line-feedback-proposal.md#verification-status). | 2026-11-23 |
+| P1F-01 | Review manual discovery coverage and safe resume rules | In progress | — | User requested starting 1F. G1 intake covers the existing TMDB and TVmaze clients and importers, the manual commands, and coverage evidence. Source review started. Validate the eventual implementation with synthetic fixtures for empty, complete, capped and failed runs and replay without duplicates. [Scope](proposed_next_phases.md#first-1f-task). | 2026-11-25 |
+
+TMDB fetches at most two pages and checks IMDb identity on at most ten
+candidates per media type. It records page counts and truncation per run.
+A capped run is partial. A completed page scan can still leave unchecked
+identities. TVmaze checkpoints a successful country/date response in the same
+transaction as its episode upserts. That checkpoint describes the country
+schedule response. Global web coverage and removal of previously observed
+episodes require separate rules.
+
+The next design decision is the unit of coverage and replay. For TMDB,
+define how to retry a capped date window without relying on page offsets
+that may shift between requests. For TVmaze, distinguish successful empty
+dates from failed attempts, and keep episode airings distinct from new
+seasons and series premieres. Choose schedule times after the manual full run.
+
+The initial review used local source and phase records. No live discovery
+calls or new tests ran for this review.

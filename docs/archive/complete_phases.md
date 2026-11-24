@@ -1,5 +1,22 @@
 # Completed phases
 
+## Phase 1E — Notifications and feedback
+
+On 2026-11-25 the user separately approved G3 delivery and G4 closure. The
+gateway, signed webhook, and initial feedback landed in `e22ff87`. The V6
+follow-up and colored buttons were pushed to `origin/master` as `aa51381`.
+The offline suite passed 67 tests and the V6 disposable PostgreSQL suite
+passed 28, including upgrade from populated V5. The user approved V6 on the
+application database. Flyway applied only V6 and a read-only check verified
+the existing responses were preserved. After restart, LINE verified the
+signed webhook and the user confirmed receipt of the colored cards. A
+read-only query verified that a live Watched tap preserved prior interest.
+Changing interest after Watched was verified in the disposable tests.
+[Feedback evidence](../line-feedback-proposal.md#independent-interest-and-watched-status).
+
+Carry into 1F: unattended operation and schedule decisions after a manual
+full run. The manual LINE delivery and feedback work is complete.
+
 ## Phase 1D — Deterministic ranking
 
 Closed on 2026-11-23 with the user's G4 approval. P1D-01 delivered the
