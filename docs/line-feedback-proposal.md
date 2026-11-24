@@ -147,6 +147,160 @@ Read-only verification confirmed successful V1–V5 history, the five new tables
 with constraints, and zero rows in each. No live webhook or application send
 was performed.
 
+## Live feedback check
+
+LINE verified the signed webhook with HTTP 200 on 2026-11-23 after the
+bot ID was corrected. This verified a request with no feedback events.
+
+On 2026-11-24, local preflight confirmed the packaged JAR and IMDb snapshot
+are present. No new live calls or application tests were run. The next check
+uses the existing November 1–21 comparison window and November 21 snapshot.
+After authorization, prepare one delivery locally using `--line-prepare-*`
+with `postgres,local`. Preparation reads recommendations and stores the
+delivery and items in `pmtd_agent.pmtd` with Flyway disabled. Review the
+message and delivery ID before requesting approval for the specific push.
+
+On 2026-11-24, the user approved preparation. The packaged JAR ran with
+`postgres,local`, `--line-prepare-from=2026-11-01`,
+`--line-prepare-to=2026-11-21`, the local IMDb ratings file and
+`--line-imdb-date=2026-11-21`. It exited successfully and prepared one
+carousel with three title cards. No additional test suite was run for this
+live preparation.
+
+For the approved push, confirm the app and tunnel are running and LINE webhook
+delivery is enabled. Send the prepared ID once to the configured recipient.
+After the user taps one intended feedback button, verify that the event and
+current state match the selected title and action. Report the result without
+logging private payloads or feedback details.
+
+On 2026-11-24, the user approved sending the prepared delivery once. Local and
+tunneled health checks returned HTTP 200 and the LINE endpoint was enabled.
+The packaged `--line-send` command exited 0 with `LINE delivery result: accepted`.
+The user reported tapping all three cards. A read-only PostgreSQL query scoped
+to the delivery joined `notification_item`, `feedback_event` and
+`user_title_state`. It found three rows, one response per card, with the
+stored action matching current state on each. No application suite was rerun.
+
+The user asked about visible selection, repeated taps and changed responses.
+Flex buttons support colors defined at send time. The current handler ignores
+redelivery of the same webhook event ID. Each distinct valid tap is recorded,
+and the latest event by timestamp and ID determines current state. For follow-up
+design, consider treating repeat selections as one preference signal while
+preserving event ordering, and showing confirmation after a change is saved.
+Decide separately whether watched status should persist alongside interest.
+
+## Flex button styling
+
+On 2026-11-24, the user approved static button colors and asked to avoid
+per-tap acknowledgments. `LineDelivery.kt` uses green for Interested, red for
+Not interested and blue for Watched on newly prepared cards. The labels and
+postback actions retain their existing behavior. LINE excludes replies sent
+through its reply API from the monthly quota and counts deliverable pushes.
+[Message counting](https://developers.line.biz/en/docs/messaging-api/pricing/).
+
+`gradlew.bat --offline --no-daemon bootJar` passed using the workspace Gradle
+cache. No live send or test suite was run for this styling change.
+
+## Independent interest and watched status
+
+On 2026-11-24 the user approved the behavior: repeat taps count as one
+preference, a changed choice replaces the current preference, and Watched
+is independent. The user then approved V6 migration creation and implementation.
+Execution against a database requires separate authorization for the target.
+
+`V6__independent_title_feedback.sql` adds a read-only
+`user_title_feedback` view over `feedback_event` and `notification_item`.
+For each title, select the latest Interested or Not interested event and
+the latest Watched event independently, ordered by event timestamp and ID.
+Existing history supplies both values as soon as the view is created,
+including interest choices previously superseded by Watched. A distinct
+tap remains a receipt for ordering and audit. Retries with the same event
+ID remain deduplicated. No separate row needs rewriting for repeated taps,
+and ranking continues to exclude watched titles even after an interest change.
+
+`LineFeedbackRepository.kt` records webhook receipts and feedback events
+transactionally and stops writing the legacy `user_title_state` once V6 is
+present. The V5 write path remains available during rollout.
+`RecommendationRepository.kt` uses the view on V6 with the existing
+fallback on older schemas. V6 preserves the legacy table and history. If rolling
+back to V5-only code after accepting new taps, rebuild the legacy projection
+from the latest event per title before resuming the old webhook. Review that
+database operation separately if needed. No new dependency or LINE reply is
+needed.
+
+An alternative is to update a materialized state row for each dimension. It
+would require backfill and concurrency logic to keep late events and repeats
+ordered. Start with the view for the current volume and measure before adding
+a cache. Verify migration from populated V5 and test repeated, changed,
+duplicate and out-of-order taps, plus ranking exclusion after Watched. Use
+an approved disposable PostgreSQL schema for those checks.
+
+On 2026-11-24, the user authorized `gradlew.bat --offline --no-daemon postgresTest`
+in the disposable schema `pmtd_agent_test.pmtd_test_feedback_v6_20261124_a1`.
+The suite stages V5, writes synthetic feedback, and then applies V6.
+
+The tester ran `gradlew.bat --offline --no-daemon test bootJar` using the
+workspace Gradle cache. The build passed with 67 tests and zero failures or
+skips. The PostgreSQL regression tests compiled. The application database is
+outside the scope of the approved PostgreSQL test run.
+
+The tester confirmed the approved schema was absent, created it, and ran
+`gradlew.bat --offline --no-daemon postgresTest` with the workspace Gradle
+cache. All 28 tests passed with zero failures, errors or skips. The suite
+verified upgrade from populated V5, migration confinement and restart,
+duplicate events, repeated and out-of-order taps, rollback and redelivery,
+and watched exclusion after a later interest change. The disposable schema
+was retained. The application database was not accessed during the test run.
+
+Requested application rollout: verify that `pmtd_agent.pmtd` is on V5,
+apply only V6, then verify the Flyway version and that the view derives
+state from existing feedback. Restart the desktop webhook with the packaged
+V6 code so it uses the new behavior. Confirm webhook health and re-run LINE's
+empty verification request. No new notification is required for rollout.
+
+On 2026-11-24 the user approved applying V6 and chose to restart the webhook
+personally. A read-only preflight confirmed V1–V5 and three feedback events
+in `pmtd_agent.pmtd`. The packaged V6 SQL matched the source hash. Running the
+packaged JAR with `postgres,local`, web startup disabled and
+`--spring.flyway.target=6` validated six migrations and applied only V6.
+A read-only postflight confirmed successful V1–V6, all three feedback events,
+and three matching view rows with zero discrepancies. The webhook connection
+check awaits the user's restart. No application tests were rerun for rollout.
+
+After the user reported the webhook running, local and tunneled health checks
+returned HTTP 200, the expected LINE endpoint was enabled, and LINE's empty
+webhook verification returned HTTP 200. The port 8080 listener was the process
+started on 2026-11-23, before the V6 build, so the running process must be
+restarted to load the new code. V6 feedback behavior is not yet live-verified.
+
+The user stopped the old Java process and requested startup. On 2026-11-24,
+the V6 JAR started on port 8080 with Flyway disabled. Local and tunnel health
+returned HTTP 200, LINE reported the expected endpoint enabled, and its empty
+webhook verification succeeded with HTTP 200. No new feedback event was sent.
+
+On 2026-11-24, the user requested a message to test V6 and colored buttons.
+Downloaded the public IMDb ratings snapshot dated 2026-11-24 UTC, verified
+its gzip stream and header, and prepared a delivery for the November 1–21 window. The
+four cards were reviewed and the user approved that specific delivery. The app
+and tunnel returned HTTP 200 and LINE reported the webhook enabled. The
+`--line-send` command exited 0 with result `accepted`. Feedback taps and their
+database verification remain pending. No test suite was rerun for this send.
+
+On 2026-11-25, the user confirmed receipt and reported button taps. A read-only
+query scoped to the colored delivery found two new Interested events, each on
+a different card, and their V6 interest states matched. The other two cards had
+no events from this delivery; their view states came from earlier history.
+The live sequence involving changed interest and Watched has not been observed.
+
+The user later reported a Watched tap and a Not interested tap. A read-only
+query scoped to the same delivery confirmed both. For the watched title, the
+view retained its earlier Interested choice and showed `watched=true`. The
+other title showed Not interested and `watched=false`. A later interest change
+after Watched was covered by disposable tests, not by this live check.
+
+On 2026-11-25, the user approved G3 delivery of the V6 follow-up and separately
+approved G4 closure of Phase 1E.
+
 Sources: [LINE signature verification](https://developers.line.biz/en/docs/messaging-api/verify-webhook-signature/),
 [LINE retry requests](https://developers.line.biz/en/docs/messaging-api/retrying-api-request/),
 [LINE messaging reference](https://developers.line.biz/en/reference/messaging-api/).

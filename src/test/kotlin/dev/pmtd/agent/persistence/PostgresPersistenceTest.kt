@@ -112,6 +112,17 @@ class PostgresPersistenceTest {
                 }
             }
         }
+        context = startContext(flywayTarget = "5")
+        try {
+            val item = notificationItem(998700)
+            val repo = lineFeedbackRepository()
+            repo.accept(LinePostbackEvent("fixture-line-v5-interest", item, "interested", now.toEpochMilli()))
+            repo.accept(LinePostbackEvent("fixture-line-v5-watched", item, "watched", now.toEpochMilli() + 1))
+            check(jdbc.sql("SELECT action FROM user_title_state WHERE media_type = 'tv' AND tmdb_id = 998700")
+                .query(String::class.java).single() == "watched") { "Expected the V5 state to hold the most recent action" }
+        } finally {
+            context.close()
+        }
         context = startContext()
     }
 
@@ -124,8 +135,8 @@ class PostgresPersistenceTest {
     fun `migration is confined to target schema and is not repeated`() {
         assertThat(jdbc.sql("SELECT current_schema()").query(String::class.java).single()).isEqualTo(schema)
         val flyway = context.getBean(Flyway::class.java)
-        assertThat(flyway.info().applied()).hasSize(5)
-        assertThat(flyway.info().current().version.version).isEqualTo("5")
+        assertThat(flyway.info().applied()).hasSize(6)
+        assertThat(flyway.info().current().version.version).isEqualTo("6")
         assertThat(flyway.migrate().migrationsExecuted).isZero()
         flyway.validate()
         val tables = jdbc.sql("SELECT tablename FROM pg_tables WHERE schemaname = :schema")
@@ -135,6 +146,13 @@ class PostgresPersistenceTest {
             "tvmaze_schedule_episode", "tvmaze_schedule_checkpoint", "tmdb_candidate", "tmdb_discovery_run", "rated_title_tmdb_metadata", "rated_title_enrichment_attempt",
             "notification_delivery", "notification_item", "line_webhook_event", "feedback_event", "user_title_state",
         )
+        assertThat(jdbc.sql("SELECT viewname FROM pg_views WHERE schemaname = :schema")
+            .param("schema", schema).query(String::class.java).list()).containsExactly("user_title_feedback")
+    }
+
+    @Test
+    fun `V6 recovers interest and watched status from populated V5 history`() {
+        assertThat(feedbackState(998700)).containsExactly("interested" to true)
     }
 
     @Test
@@ -259,7 +277,7 @@ class PostgresPersistenceTest {
         context.close()
         context = startContext()
         assertThat(catalog.findById(title.id)).isEqualTo(title)
-        assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(5)
+        assertThat(context.getBean(Flyway::class.java).info().applied()).hasSize(6)
     }
 
     @Test
@@ -625,6 +643,12 @@ class PostgresPersistenceTest {
         assertThatThrownBy { repo.preview(day, day.plusDays(31), 5) }.isInstanceOf(IllegalArgumentException::class.java)
         assertThatThrownBy { repo.preview(day, day, 0) }.isInstanceOf(IllegalArgumentException::class.java)
         assertThatThrownBy { repo.preview(day, day, 11) }.isInstanceOf(IllegalArgumentException::class.java)
+
+        val item = notificationItem(990200, media = "movie", existingCandidate = true)
+        val feedback = lineFeedbackRepository()
+        feedback.accept(LinePostbackEvent("fixture-line-rank-watched", item, "watched", now.toEpochMilli()))
+        feedback.accept(LinePostbackEvent("fixture-line-rank-interested", item, "interested", now.toEpochMilli() + 1))
+        assertThat(repo.preview(day, day, 10)).isEmpty()
     }
 
     @Test
@@ -645,8 +669,7 @@ class PostgresPersistenceTest {
             .param("event", event.id).query(String::class.java).list()).containsExactly("applied")
         assertThat(jdbc.sql("SELECT action FROM feedback_event WHERE item_id = :item")
             .param("item", item).query(String::class.java).list()).containsExactly("interested")
-        assertThat(jdbc.sql("SELECT event_id FROM user_title_state WHERE media_type = 'tv' AND tmdb_id = 998701")
-            .query(String::class.java).list()).containsExactly(event.id)
+        assertThat(feedbackState(998701)).containsExactly("interested" to false)
     }
 
     @Test
@@ -657,18 +680,20 @@ class PostgresPersistenceTest {
         repo.accept(LinePostbackEvent("fixture-line-order-b", item, "interested", time))
         repo.accept(LinePostbackEvent("fixture-line-order-a", item, "not_interested", time))
         repo.accept(LinePostbackEvent("fixture-line-order-z", item, "not_interested", time - 1))
-        assertThat(jdbc.sql("SELECT event_id FROM user_title_state WHERE media_type = 'tv' AND tmdb_id = 998702")
-            .query(String::class.java).list()).containsExactly("fixture-line-order-b")
+        assertThat(feedbackState(998702)).containsExactly("interested" to false)
         repo.accept(LinePostbackEvent("fixture-line-order-c", item, "watched", time))
+        repo.accept(LinePostbackEvent("fixture-line-order-repeat", item, "interested", time + 2))
+        repo.accept(LinePostbackEvent("fixture-line-order-late", item, "not_interested", time + 1))
+        assertThat(feedbackState(998702)).containsExactly("interested" to true)
+        repo.accept(LinePostbackEvent("fixture-line-order-change", item, "not_interested", time + 3))
         val unknown = "fixture-line-unknown"
         repo.accept(LinePostbackEvent(unknown, UUID.randomUUID(), "watched", time + 1))
 
-        assertThat(jdbc.sql("SELECT action FROM user_title_state WHERE media_type = 'tv' AND tmdb_id = 998702")
-            .query(String::class.java).list()).containsExactly("watched")
-        assertThat(jdbc.sql("SELECT event_id FROM user_title_state WHERE media_type = 'tv' AND tmdb_id = 998702")
-            .query(String::class.java).list()).containsExactly("fixture-line-order-c")
+        assertThat(feedbackState(998702)).containsExactly("not_interested" to true)
+        assertThat(jdbc.sql("SELECT count(*) FROM user_title_state WHERE media_type = 'tv' AND tmdb_id = 998702")
+            .query(Long::class.java).single()).isZero()
         assertThat(jdbc.sql("SELECT count(*) FROM feedback_event WHERE item_id = :item")
-            .param("item", item).query(Long::class.java).single()).isEqualTo(4)
+            .param("item", item).query(Long::class.java).single()).isEqualTo(7)
         assertThat(jdbc.sql("SELECT outcome FROM line_webhook_event WHERE event_id = :event")
             .param("event", unknown).query(String::class.java).list()).containsExactly("ignored")
         assertThat(jdbc.sql("SELECT count(*) FROM feedback_event WHERE event_id = :event")
@@ -684,25 +709,30 @@ class PostgresPersistenceTest {
             repo.accept(event)
             throw IllegalStateException("synthetic rollback after persisting feedback")
         } }.isInstanceOf(IllegalStateException::class.java)
-        for (table in listOf("line_webhook_event", "feedback_event", "user_title_state")) {
+        for (table in listOf("line_webhook_event", "feedback_event")) {
             assertThat(jdbc.sql("SELECT count(*) FROM $table WHERE event_id = :event")
                 .param("event", event.id).query(Long::class.java).single()).isZero()
         }
+        assertThat(feedbackState(998703)).isEmpty()
         repo.accept(event)
-        assertThat(jdbc.sql("SELECT action FROM user_title_state WHERE event_id = :event")
-            .param("event", event.id).query(String::class.java).list()).containsExactly("watched")
+        assertThat(feedbackState(998703)).containsExactly(null to true)
     }
 
     private fun lineFeedbackRepository() = LineFeedbackRepository(jdbc, context.getBean(PlatformTransactionManager::class.java))
 
-    private fun notificationItem(tmdbId: Long): UUID {
+    private fun feedbackState(tmdbId: Long): List<Pair<String?, Boolean>> = jdbc.sql("""
+        SELECT interest_action, watched FROM user_title_feedback WHERE media_type = 'tv' AND tmdb_id = :tmdb
+    """.trimIndent()).param("tmdb", tmdbId)
+        .query { row, _ -> row.getString("interest_action") to row.getBoolean("watched") }.list()
+
+    private fun notificationItem(tmdbId: Long, media: String = "tv", existingCandidate: Boolean = false): UUID {
         val delivery = UUID.randomUUID()
         val item = UUID.randomUUID()
         val timestamp = java.sql.Timestamp.from(now)
-        jdbc.sql("""
+        if (!existingCandidate) jdbc.sql("""
             INSERT INTO tmdb_candidate(media_type, tmdb_id, title, link_status, first_seen_at, last_seen_at)
-            VALUES ('tv', :tmdb, 'Synthetic feedback title', 'not_checked', :time, :time)
-        """.trimIndent()).param("tmdb", tmdbId).param("time", timestamp).update()
+            VALUES (:media, :tmdb, 'Synthetic feedback title', 'not_checked', :time, :time)
+        """.trimIndent()).param("media", media).param("tmdb", tmdbId).param("time", timestamp).update()
         jdbc.sql("""
             INSERT INTO notification_delivery(id, retry_key, recipient_id, payload, status, created_at)
             VALUES (:id, :retry, :recipient, '[{"type":"text","text":"Synthetic delivery"}]', 'accepted', :time)
@@ -710,8 +740,8 @@ class PostgresPersistenceTest {
             .param("recipient", "U" + "1".repeat(32)).param("time", timestamp).update()
         jdbc.sql("""
             INSERT INTO notification_item(id, delivery_id, media_type, tmdb_id, title, position)
-            VALUES (:id, :delivery, 'tv', :tmdb, 'Synthetic feedback title', 1)
-        """.trimIndent()).param("id", item).param("delivery", delivery).param("tmdb", tmdbId).update()
+            VALUES (:id, :delivery, :media, :tmdb, 'Synthetic feedback title', 1)
+        """.trimIndent()).param("id", item).param("delivery", delivery).param("media", media).param("tmdb", tmdbId).update()
         return item
     }
 
@@ -723,13 +753,14 @@ class PostgresPersistenceTest {
 
     private val importHeader = "Const,Your Rating,Date Rated,Title,Title Type,Year"
 
-    private fun startContext(): ConfigurableApplicationContext {
+    private fun startContext(flywayTarget: String? = null): ConfigurableApplicationContext {
         // Do not let ambient SPRING_DATASOURCE_*, SPRING_FLYWAY_* or spring.config.*
         // redirect integration writes away from the explicitly authorized test target.
         val environment = StandardEnvironment().apply {
             propertySources.remove(StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME)
             propertySources.remove(StandardEnvironment.SYSTEM_PROPERTIES_PROPERTY_SOURCE_NAME)
-            propertySources.addFirst(MapPropertySource("authorized-postgres-test-target", settings))
+            val properties = if (flywayTarget == null) settings else settings + ("spring.flyway.target" to flywayTarget)
+            propertySources.addFirst(MapPropertySource("authorized-postgres-test-target", properties))
         }
         return SpringApplicationBuilder(MovieTvAgentApplication::class.java)
             .environment(environment).web(WebApplicationType.NONE).profiles("postgres").run()

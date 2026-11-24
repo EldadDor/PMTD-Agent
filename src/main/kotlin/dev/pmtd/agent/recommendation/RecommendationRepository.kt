@@ -79,12 +79,21 @@ internal class RecommendationRepository(private val jdbc: JdbcClient, transactio
                     row.getString("original_language"), row.longArray("genre_ids"), row.stringArray("origin_countries"),
                     row.getString("imdb_id"))
             }.list()
-            val feedbackTableExists = jdbc.sql("SELECT to_regclass('user_title_state') IS NOT NULL")
-                .query(Boolean::class.java).single()
-            val watched = if (feedbackTableExists) {
-                jdbc.sql("SELECT media_type, tmdb_id FROM user_title_state WHERE action = 'watched'")
-                    .query { row, _ -> row.getString("media_type") to row.getLong("tmdb_id") }.list().toSet()
-            } else emptySet()
+            val feedbackVersion = jdbc.sql("""
+                SELECT CASE
+                    WHEN to_regclass('user_title_feedback') IS NOT NULL THEN 6
+                    WHEN to_regclass('user_title_state') IS NOT NULL THEN 5
+                    ELSE 0
+                END
+            """.trimIndent()).query(Int::class.javaObjectType).single()
+            val watchedQuery = when (feedbackVersion) {
+                6 -> "SELECT media_type, tmdb_id FROM user_title_feedback WHERE watched"
+                5 -> "SELECT media_type, tmdb_id FROM user_title_state WHERE action = 'watched'"
+                else -> null
+            }
+            val watched = watchedQuery?.let { sql ->
+                jdbc.sql(sql).query { row, _ -> row.getString("media_type") to row.getLong("tmdb_id") }.list().toSet()
+            }.orEmpty()
             RecommendationScorer.rank(history, candidates.filterNot { (it.media to it.tmdbId) in watched }, limit)
         })
     }

@@ -18,17 +18,22 @@ internal class LineDelivery(private val jdbc: JdbcClient, manager: PlatformTrans
         val id = UUID.randomUUID()
         val items = candidates.map { UUID.randomUUID() to it.candidate }
         val bubbles = items.map { (itemId, item) ->
-            val buttons = listOf("Interested" to "interested", "Not interested" to "not_interested", "Watched" to "watched")
+            val buttons = listOf(
+                Triple("Interested", "interested", "#15803D"),
+                Triple("Not interested", "not_interested", "#B91C1C"),
+                Triple("Watched", "watched", "#1D4ED8"),
+            )
             mapOf(
                 "type" to "bubble",
                 "body" to mapOf("type" to "box", "layout" to "vertical", "contents" to listOf(
                     mapOf("type" to "text", "text" to item.title, "wrap" to true, "weight" to "bold"),
                     mapOf("type" to "text", "text" to if (item.media == "movie") "Movie" else "TV series", "wrap" to true),
                 )),
-                "footer" to mapOf("type" to "box", "layout" to "vertical", "contents" to buttons.map { (label, action) ->
-                    mapOf("type" to "button", "action" to mapOf(
-                        "type" to "postback", "label" to label, "data" to "item=$itemId&action=$action",
-                    ))
+                "footer" to mapOf("type" to "box", "layout" to "vertical", "contents" to buttons.map { (label, action, color) ->
+                    mapOf(
+                        "type" to "button", "style" to "primary", "color" to color,
+                        "action" to mapOf("type" to "postback", "label" to label, "data" to "item=$itemId&action=$action"),
+                    )
                 } + mapOf("type" to "button", "action" to mapOf(
                     "type" to "uri", "label" to "Details",
                     "uri" to "https://www.themoviedb.org/${item.media}/${item.tmdbId}",
